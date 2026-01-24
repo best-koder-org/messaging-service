@@ -1,6 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using MessagingService.Services;
+using MessagingService.Commands;
+using MessagingService.Queries;
+using MessagingService.Common;
+using MediatR;
 using System.Security.Claims;
 
 namespace MessagingService.Controllers;
@@ -10,13 +14,13 @@ namespace MessagingService.Controllers;
 [Authorize]
 public class MessagesController : ControllerBase
 {
-    private readonly IMessageService _messageService;
     private readonly ILogger<MessagesController> _logger;
+    private readonly IMediator _mediator;
 
-    public MessagesController(IMessageService messageService, ILogger<MessagesController> logger)
+    public MessagesController(ILogger<MessagesController> logger, IMediator mediator)
     {
-        _messageService = messageService;
         _logger = logger;
+        _mediator = mediator;
     }
 
     [HttpGet("conversations")]
@@ -28,16 +32,15 @@ public class MessagesController : ControllerBase
             return Unauthorized();
         }
 
-        try
+        var query = new GetConversationsQuery { UserId = userId };
+        var result = await _mediator.Send(query);
+
+        if (result.IsFailure)
         {
-            var conversations = await _messageService.GetConversationsAsync(userId);
-            return Ok(conversations);
+            return StatusCode(500, ApiResponse<object>.FailureResult(result.Error!));
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Error getting conversations for user {userId}");
-            return StatusCode(500, "Internal server error");
-        }
+
+        return Ok(ApiResponse<object>.SuccessResult(result.Value!));
     }
 
     [HttpGet("conversation/{otherUserId}")]
@@ -49,16 +52,21 @@ public class MessagesController : ControllerBase
             return Unauthorized();
         }
 
-        try
+        var query = new GetConversationQuery 
+        { 
+            UserId = userId, 
+            OtherUserId = otherUserId, 
+            Page = page, 
+            PageSize = pageSize 
+        };
+        var result = await _mediator.Send(query);
+
+        if (result.IsFailure)
         {
-            var messages = await _messageService.GetConversationAsync(userId, otherUserId, page, pageSize);
-            return Ok(messages);
+            return StatusCode(500, ApiResponse<object>.FailureResult(result.Error!));
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Error getting conversation between {userId} and {otherUserId}");
-            return StatusCode(500, "Internal server error");
-        }
+
+        return Ok(ApiResponse<object>.SuccessResult(result.Value!));
     }
 
     [HttpPost("{messageId}/read")]
@@ -70,16 +78,15 @@ public class MessagesController : ControllerBase
             return Unauthorized();
         }
 
-        try
+        var command = new MarkMessageAsReadCommand { MessageId = messageId, UserId = userId };
+        var result = await _mediator.Send(command);
+
+        if (result.IsFailure)
         {
-            await _messageService.MarkAsReadAsync(messageId, userId);
-            return Ok();
+            return StatusCode(500, ApiResponse<object>.FailureResult(result.Error!));
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Error marking message {messageId} as read for user {userId}");
-            return StatusCode(500, "Internal server error");
-        }
+
+        return Ok(ApiResponse<object>.SuccessResult(new { }));
     }
 
     [HttpDelete("{messageId}")]
@@ -91,19 +98,18 @@ public class MessagesController : ControllerBase
             return Unauthorized();
         }
 
-        try
+        var command = new DeleteMessageCommand { MessageId = messageId, UserId = userId };
+        var result = await _mediator.Send(command);
+
+        if (result.IsFailure)
         {
-            var success = await _messageService.DeleteMessageAsync(messageId, userId);
-            if (success)
+            if (result.Error!.Contains("not found"))
             {
-                return Ok();
+                return NotFound(ApiResponse<object>.FailureResult(result.Error!));
             }
-            return NotFound("Message not found or you don't have permission to delete it");
+            return StatusCode(500, ApiResponse<object>.FailureResult(result.Error!));
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Error deleting message {messageId} for user {userId}");
-            return StatusCode(500, "Internal server error");
-        }
+
+        return Ok(ApiResponse<object>.SuccessResult(new { }));
     }
 }

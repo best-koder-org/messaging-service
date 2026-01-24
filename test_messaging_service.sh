@@ -14,7 +14,7 @@ sleep 5
 
 # Test basic API health
 echo "🔍 Testing API health..."
-curl -s http://localhost:5007/swagger/index.html > /dev/null
+curl -s http://localhost:8007/swagger/index.html > /dev/null
 if [ $? -eq 0 ]; then
     echo "✅ API is accessible"
 else
@@ -23,7 +23,7 @@ fi
 
 # Test JWT token requirement
 echo "🔐 Testing authentication requirement..."
-AUTH_RESULT=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5007/api/messages/conversations)
+AUTH_RESULT=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8007/api/messages/conversations)
 if [ "$AUTH_RESULT" = "401" ]; then
     echo "✅ Authentication is properly enforced"
 else

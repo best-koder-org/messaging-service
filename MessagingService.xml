@@ -4,6 +4,21 @@
         <name>MessagingService</name>
     </assembly>
     <members>
+        <member name="T:MessagingService.Common.ApiResponse`1">
+            <summary>
+            Standardized API response wrapper
+            </summary>
+        </member>
+        <member name="T:MessagingService.Common.Result`1">
+            <summary>
+            Result pattern for operation outcomes
+            </summary>
+        </member>
+        <member name="T:MessagingService.Common.Result">
+            <summary>
+            Result pattern for operations without return value
+            </summary>
+        </member>
         <member name="T:MessagingService.Migrations.InitialCreate">
             <inheritdoc />
         </member>

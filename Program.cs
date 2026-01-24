@@ -1,59 +1,71 @@
+using DatingApp.Shared.Middleware;
+using FluentValidation;
+using MessagingService.Data;
+using MessagingService.Extensions;
+using MessagingService.Hubs;
+using MessagingService.Middleware;
+using MessagingService.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
-using MessagingService.Data;
-using MessagingService.Hubs;
-using MessagingService.Services;
-using MessagingService.Middleware;
-using System.Text;
+using System.Threading.Tasks;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.IncludeScopes = true;
+    options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
+});
+
 // Add services to the container.
-builder.Services.AddDbContext<MessagingDbContext>(options =>
-    options.UseMySql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        new MySqlServerVersion(new Version(8, 0, 25))
-    )
-);
+var isDemoMode = Environment.GetEnvironmentVariable("DEMO_MODE") == "true";
+
+if (isDemoMode)
+{
+    Console.WriteLine("MessagingService: Using in-memory database for demo mode");
+    builder.Services.AddDbContext<MessagingDbContext>(options =>
+        options.UseInMemoryDatabase("MessagingServiceDemo"));
+}
+else
+{
+    builder.Services.AddDbContext<MessagingDbContext>(options =>
+        options.UseMySql(
+            builder.Configuration.GetConnectionString("DefaultConnection"),
+            new MySqlServerVersion(new Version(8, 0, 25))
+        )
+    );
+}
 
 // Add Authentication
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+builder.Services.AddKeycloakAuthentication(builder.Configuration, options =>
+{
+    options.Events = new JwtBearerEvents
     {
-        options.TokenValidationParameters = new TokenValidationParameters
+        OnMessageReceived = context =>
         {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT key not found"))
-            ),
-            ValidateIssuer = false,
-            ValidateAudience = false,
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.Zero
-        };
-
-        // Add SignalR specific events for JWT validation
-        options.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = context =>
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/messagingHub"))
             {
-                var accessToken = context.Request.Query["access_token"];
-                var path = context.HttpContext.Request.Path;
-                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/messagingHub"))
-                {
-                    context.Token = accessToken;
-                }
-                return Task.CompletedTask;
+                context.Token = accessToken;
             }
-        };
-    });
+            return Task.CompletedTask;
+        }
+    };
+
+    options.TokenValidationParameters.ClockSkew = TimeSpan.Zero;
+});
 
 // Add Authorization
 builder.Services.AddAuthorization();
 
 // Add Controllers
 builder.Services.AddControllers();
+
+// Add Health Checks
+builder.Services.AddHealthChecks();
 
 // Add SignalR
 builder.Services.AddSignalR(options =>
@@ -70,6 +82,13 @@ builder.Services.AddScoped<ISpamDetectionService, SpamDetectionService>();
 builder.Services.AddScoped<IPersonalInfoDetectionService, PersonalInfoDetectionService>();
 builder.Services.AddScoped<IRateLimitingService, RateLimitingService>();
 builder.Services.AddScoped<IReportingService, ReportingService>();
+builder.Services.AddCorrelationIds();
+
+// Add MediatR for CQRS
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+
+// Add FluentValidation
+builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly);
 
 // Add Memory Cache for rate limiting and content caching
 builder.Services.AddMemoryCache();
@@ -115,6 +134,8 @@ app.UseHttpsRedirection();
 
 app.UseCors("AllowSpecificOrigins");
 
+app.UseCorrelationIds();
+
 // Add custom rate limiting middleware
 app.UseMiddleware<RateLimitingMiddleware>();
 
@@ -123,6 +144,8 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+app.MapHealthChecks("/health");
+
 // Map SignalR hub
 app.MapHub<MessagingHub>("/messagingHub");
 
@@ -130,7 +153,15 @@ app.MapHub<MessagingHub>("/messagingHub");
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
-    context.Database.EnsureCreated();
+    if (isDemoMode)
+    {
+        Console.WriteLine("MessagingService: Using in-memory database, skipping migrations");
+        context.Database.EnsureCreated();
+    }
+    else
+    {
+        context.Database.EnsureCreated();
+    }
 }
 
 app.Run();

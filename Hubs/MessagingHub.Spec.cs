@@ -14,15 +14,18 @@ public class MessagingHubSpec : Hub
 {
     private readonly IMessageServiceSpec _messageService;
     private readonly IContentModerationService _contentModeration;
+    private readonly ISafetyServiceClient _safetyService;
     private readonly ILogger<MessagingHubSpec> _logger;
 
     public MessagingHubSpec(
         IMessageServiceSpec messageService,
         IContentModerationService contentModeration,
+        ISafetyServiceClient safetyService,
         ILogger<MessagingHubSpec> logger)
     {
         _messageService = messageService;
         _contentModeration = contentModeration;
+        _safetyService = safetyService;
         _logger = logger;
     }
 
@@ -76,6 +79,20 @@ public class MessagingHubSpec : Hub
                 throw new HubException("not-authorized");
             }
 
+            // Get other participant
+            var receiverId = await _messageService.GetOtherParticipant(request.MatchId, senderId);
+
+            // Check if users have blocked each other (P0 safety requirement)
+            var isBlocked = await _safetyService.IsBlockedAsync(senderId, receiverId);
+            var isBlockedReverse = await _safetyService.IsBlockedAsync(receiverId, senderId);
+            
+            if (isBlocked || isBlockedReverse)
+            {
+                _logger.LogWarning("Messaging blocked between users {SenderId} and {ReceiverId} in match {MatchId}", 
+                    senderId, receiverId, request.MatchId);
+                throw new HubException("messaging-blocked");
+            }
+
             // Validate message length
             if (string.IsNullOrWhiteSpace(request.Body) || request.Body.Length > 1000)
             {
@@ -93,9 +110,6 @@ public class MessagingHubSpec : Hub
 
             // Persist and broadcast message
             var messageDto = await _messageService.SendMessageAsync(request.MatchId, senderId, request.Body);
-
-            // Get other participant
-            var receiverId = await _messageService.GetOtherParticipant(request.MatchId, senderId);
 
             // Server-to-Client: MessageReceived for both participants
             await Clients.User(receiverId).SendAsync("MessageReceived", messageDto);

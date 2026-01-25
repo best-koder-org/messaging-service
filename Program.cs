@@ -84,6 +84,12 @@ builder.Services.AddScoped<IRateLimitingService, RateLimitingService>();
 builder.Services.AddScoped<IReportingService, ReportingService>();
 builder.Services.AddCorrelationIds();
 
+// Add HttpClient for Safety Service
+builder.Services.AddHttpClient<ISafetyServiceClient, SafetyServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Gateway:BaseUrl"] ?? "http://dejting-yarp:8080");
+});
+
 // Add MediatR for CQRS
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 

@@ -77,6 +77,7 @@ builder.Services.AddSignalR(options =>
 
 // Add Custom Services
 builder.Services.AddScoped<IMessageService, MessageService>();
+builder.Services.AddScoped<IMessageServiceSpec, MessageServiceSpec>();
 builder.Services.AddScoped<IContentModerationService, ContentModerationService>();
 builder.Services.AddScoped<ISpamDetectionService, SpamDetectionService>();
 builder.Services.AddScoped<IPersonalInfoDetectionService, PersonalInfoDetectionService>();
@@ -86,6 +87,12 @@ builder.Services.AddCorrelationIds();
 
 // Add HttpClient for Safety Service
 builder.Services.AddHttpClient<ISafetyServiceClient, SafetyServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Gateway:BaseUrl"] ?? "http://dejting-yarp:8080");
+});
+
+// Add HttpClient for MessageServiceSpec (to call MatchmakingService)
+builder.Services.AddHttpClient<MessageServiceSpec>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Gateway:BaseUrl"] ?? "http://dejting-yarp:8080");
 });
@@ -152,8 +159,8 @@ app.MapControllers();
 
 app.MapHealthChecks("/health");
 
-// Map SignalR hub
-app.MapHub<MessagingHub>("/messagingHub");
+// Map SignalR hub - Use the spec-compliant hub
+app.MapHub<MessagingHubSpec>("/messagingHub");
 
 // Ensure database is created
 using (var scope = app.Services.CreateScope())

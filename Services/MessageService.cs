@@ -18,15 +18,29 @@ public class MessageService : IMessageService
 {
     private readonly MessagingDbContext _context;
     private readonly ILogger<MessageService> _logger;
+    private readonly IMatchValidationService _matchValidationService;
 
-    public MessageService(MessagingDbContext context, ILogger<MessageService> logger)
+    public MessageService(
+        MessagingDbContext context, 
+        ILogger<MessageService> logger,
+        IMatchValidationService matchValidationService)
     {
         _context = context;
         _logger = logger;
+        _matchValidationService = matchValidationService;
     }
 
     public async Task<Message> SendMessageAsync(string senderId, string receiverId, string content, MessageType type = MessageType.Text)
     {
+        // Security: Check if users have an active match before allowing message
+        var hasMatch = await _matchValidationService.AreUsersMatchedAsync(senderId, receiverId);
+        if (!hasMatch)
+        {
+            _logger.LogWarning("Message blocked: {Sender} attempted to message {Receiver} without active match", 
+                senderId, receiverId);
+            throw new UnauthorizedAccessException("Cannot send message to non-matched user");
+        }
+        
         var conversationId = GenerateConversationId(senderId, receiverId);
         
         var message = new Message
@@ -52,6 +66,7 @@ public class MessageService : IMessageService
         var conversationId = GenerateConversationId(userId, otherUserId);
         
         return await _context.Messages
+            .AsNoTracking()
             .Where(m => m.ConversationId == conversationId && 
                        !m.IsDeleted && 
                        m.ModerationStatus == ModerationStatus.Approved)
@@ -63,20 +78,27 @@ public class MessageService : IMessageService
 
     public async Task<List<ConversationSummary>> GetConversationsAsync(string userId)
     {
-        var conversations = await _context.Messages
+        // Fetch all relevant messages first to avoid EF Core projection issues
+        var messages = await _context.Messages
+            .AsNoTracking()
             .Where(m => (m.SenderId == userId || m.ReceiverId == userId) && 
                        !m.IsDeleted && 
                        m.ModerationStatus == ModerationStatus.Approved)
+            .OrderByDescending(m => m.SentAt)
+            .ToListAsync();
+
+        // Group and project in memory to avoid EF Core 'EmptyProjectionMember' error
+        var conversations = messages
             .GroupBy(m => m.ConversationId)
             .Select(g => new ConversationSummary
             {
                 ConversationId = g.Key,
-                LastMessage = g.OrderByDescending(m => m.SentAt).First(),
+                LastMessage = g.First(), // Already ordered by SentAt descending
                 UnreadCount = g.Count(m => m.ReceiverId == userId && !m.IsRead),
                 OtherUserId = g.First().SenderId == userId ? g.First().ReceiverId : g.First().SenderId
             })
             .OrderByDescending(c => c.LastMessage.SentAt)
-            .ToListAsync();
+            .ToList();
 
         return conversations;
     }
@@ -84,6 +106,7 @@ public class MessageService : IMessageService
     public async Task<Message?> GetMessageAsync(int messageId)
     {
         return await _context.Messages
+            .AsNoTracking()
             .FirstOrDefaultAsync(m => m.Id == messageId && !m.IsDeleted);
     }
 

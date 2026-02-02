@@ -29,6 +29,16 @@ public class MessagingDbContext : DbContext
             entity.HasIndex(e => e.ConversationId);
             entity.HasIndex(e => e.SentAt);
             entity.HasIndex(e => e.ModerationStatus);
+            
+            // T062: Composite indexes for common query patterns
+            entity.HasIndex(e => new { e.ConversationId, e.IsDeleted, e.ModerationStatus, e.SentAt })
+                .HasDatabaseName("IX_Messages_Conversation_Filter");
+            
+            entity.HasIndex(e => new { e.ReceiverId, e.IsRead, e.IsDeleted, e.ModerationStatus })
+                .HasDatabaseName("IX_Messages_Unread_Filter");
+                
+            entity.HasIndex(e => new { e.SenderId, e.ReceiverId })
+                .HasDatabaseName("IX_Messages_Participants");
         });
     }
 }

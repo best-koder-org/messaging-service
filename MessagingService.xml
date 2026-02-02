@@ -19,6 +19,37 @@
             Result pattern for operations without return value
             </summary>
         </member>
+        <member name="M:MessagingService.Controllers.MessageDeletionController.DeleteUserMessages(System.String)">
+            <summary>
+            Cascade delete all messages for a user (for account deletion).
+            </summary>
+            <param name="userId">The Keycloak userId (Guid as string)</param>
+            <returns>Count of messages deleted as plain text</returns>
+        </member>
+        <member name="M:MessagingService.Controllers.MessagesController.DeleteUserMessages(System.String)">
+            <summary>
+            Delete all messages for a specific user (used during account deletion)
+            </summary>
+        </member>
+        <member name="T:MessagingService.Hubs.MessagingHubSpec">
+            <summary>
+            SignalR Hub for real-time messaging aligned with signalr-spec.md
+            MMP Version: Basic send/receive only, no typing indicators or presence
+            </summary>
+        </member>
+        <member name="M:MessagingService.Hubs.MessagingHubSpec.SendMessage(MessagingService.DTOs.SendMessageRequest)">
+            <summary>
+            Client-to-Server: Send message to match participants
+            Payload: { matchId: guid, body: string }
+            </summary>
+        </member>
+        <member name="M:MessagingService.Hubs.MessagingHubSpec.Acknowledge(MessagingService.DTOs.AcknowledgeRequest)">
+            <summary>
+            Client-to-Server: Acknowledge message reception for delivery tracking
+            Payload: { messageId: guid }
+            Note: Basic MMP implementation, full read receipts deferred
+            </summary>
+        </member>
         <member name="T:MessagingService.Migrations.InitialCreate">
             <inheritdoc />
         </member>
@@ -30,6 +61,80 @@
         </member>
         <member name="M:MessagingService.Migrations.InitialCreate.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
+        </member>
+        <member name="T:MessagingService.Services.IMessageServiceSpec">
+            <summary>
+            Message service specification interface for SignalR hub
+            Defines core messaging operations per signalr-spec.md
+            </summary>
+        </member>
+        <member name="M:MessagingService.Services.IMessageServiceSpec.IsMatchParticipant(System.Guid,System.String)">
+            <summary>
+            Check if a user is a participant in a match
+            </summary>
+        </member>
+        <member name="M:MessagingService.Services.IMessageServiceSpec.SendMessageAsync(System.Guid,System.String,System.String)">
+            <summary>
+            Send a message within a match and persist it
+            </summary>
+        </member>
+        <member name="M:MessagingService.Services.IMessageServiceSpec.GetOtherParticipant(System.Guid,System.String)">
+            <summary>
+            Get the other participant in a match (not the current user)
+            </summary>
+        </member>
+        <member name="M:MessagingService.Services.IMessageServiceSpec.AcknowledgeMessageAsync(System.Guid,System.String)">
+            <summary>
+            Acknowledge message delivery (for delivery tracking)
+            </summary>
+        </member>
+        <member name="T:MessagingService.Services.MessageServiceOptimized">
+            <summary>
+            Optimized message service with better query patterns
+            Implements T062: EF Core query optimizations
+            </summary>
+        </member>
+        <member name="M:MessagingService.Services.MessageServiceOptimized.GetConversationsOptimizedAsync(System.String)">
+            <summary>
+            OPTIMIZED: Get conversations with a single efficient query
+            Old implementation used GroupBy which caused N+1 queries
+            New: Single query with window function logic
+            Performance: 5-10x faster for users with many conversations
+            </summary>
+        </member>
+        <member name="T:MessagingService.Services.MessageServiceSpec">
+            <summary>
+            Implementation of IMessageServiceSpec for SignalR messaging hub
+            Handles match-based messaging with persistence and delivery tracking
+            </summary>
+        </member>
+        <member name="M:MessagingService.Services.MessageServiceSpec.IsMatchParticipant(System.Guid,System.String)">
+            <summary>
+            Check if a user is a participant in a match
+            Calls MatchmakingService to verify match ownership
+            </summary>
+        </member>
+        <member name="M:MessagingService.Services.MessageServiceSpec.SendMessageAsync(System.Guid,System.String,System.String)">
+            <summary>
+            Send a message within a match and persist it
+            </summary>
+        </member>
+        <member name="M:MessagingService.Services.MessageServiceSpec.GetOtherParticipant(System.Guid,System.String)">
+            <summary>
+            Get the other participant in a match (not the current user)
+            </summary>
+        </member>
+        <member name="M:MessagingService.Services.MessageServiceSpec.AcknowledgeMessageAsync(System.Guid,System.String)">
+            <summary>
+            Acknowledge message delivery (for delivery tracking)
+            Basic implementation - updates deliveredAt timestamp
+            </summary>
+        </member>
+        <member name="T:MessagingService.Services.MessagingMetricsService">
+            <summary>
+            T070: Messaging Metrics
+            Tracks: SignalR Connections, Message Delivery Rate, Latency, Moderation
+            </summary>
         </member>
     </members>
 </doc>

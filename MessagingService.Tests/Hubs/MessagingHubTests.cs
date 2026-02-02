@@ -1,5 +1,7 @@
 using System.Threading.Tasks;
 using System;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using MessagingService.Data;
 using MessagingService.Hubs;
 using MessagingService.Models;
@@ -8,9 +10,11 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.IdentityModel.Tokens;
 using Moq;
 using Xunit;
 
@@ -36,9 +40,39 @@ public class MessagingHubTests : IAsyncLifetime
                         services.AddDbContext<MessagingDbContext>(options =>
                             options.UseInMemoryDatabase($"MessagingHubTests_{Guid.NewGuid()}"));
 
+                        // Add minimal authentication for testing
+                        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                            .AddJwtBearer(options =>
+                            {
+                                options.TokenValidationParameters = new TokenValidationParameters
+                                {
+                                    ValidateIssuer = false,
+                                    ValidateAudience = false,
+                                    ValidateLifetime = true,
+                                    ValidateIssuerSigningKey = true,
+                                    IssuerSigningKey = new SymmetricSecurityKey(
+                                        System.Text.Encoding.UTF8.GetBytes("TestSecretKey123456789012345678901234567890"))
+                                };
+                                options.Events = new JwtBearerEvents
+                                {
+                                    OnMessageReceived = context =>
+                                    {
+                                        var accessToken = context.Request.Query["access_token"];
+                                        if (!string.IsNullOrEmpty(accessToken))
+                                        {
+                                            context.Token = accessToken;
+                                        }
+                                        return Task.CompletedTask;
+                                    }
+                                };
+                            });
+                        
+                        services.AddAuthorization();
+
                         services.AddSignalR();
                         services.AddScoped<IMessageService, MessageService>();
 
+                        // Mock content moderation service
                         var mockContentModeration = new Mock<IContentModerationService>();
                         mockContentModeration
                             .Setup(x => x.ModerateContentAsync(It.IsAny<string>()))
@@ -82,6 +116,7 @@ public class MessagingHubTests : IAsyncLifetime
             .WithUrl($"{server.BaseAddress}messagingHub", options =>
             {
                 options.HttpMessageHandlerFactory = _ => server.CreateHandler();
+                options.AccessTokenProvider = () => Task.FromResult<string?>(GenerateTestToken(SenderId));
             })
             .Build();
 
@@ -89,6 +124,7 @@ public class MessagingHubTests : IAsyncLifetime
             .WithUrl($"{server.BaseAddress}messagingHub", options =>
             {
                 options.HttpMessageHandlerFactory = _ => server.CreateHandler();
+                options.AccessTokenProvider = () => Task.FromResult<string?>(GenerateTestToken(ReceiverId));
             })
             .Build();
 
@@ -184,5 +220,28 @@ public class MessagingHubTests : IAsyncLifetime
     {
         Assert.Equal(HubConnectionState.Connected, _senderConnection!.State);
         Assert.Equal(HubConnectionState.Connected, _receiverConnection!.State);
+    }
+
+    private string GenerateTestToken(string userId)
+    {
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId),
+            new Claim("sub", userId),
+            new Claim(ClaimTypes.Name, $"TestUser_{userId}"),
+        };
+
+        var key = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes("TestSecretKey123456789012345678901234567890"));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: "test",
+            audience: "test",
+            claims: claims,
+            expires: DateTime.Now.AddHours(1),
+            signingCredentials: creds
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }

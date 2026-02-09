@@ -52,6 +52,17 @@
             Get all read receipts for a specific message.
             </summary>
         </member>
+        <member name="T:MessagingService.DTOs.PresenceDto">
+            <summary>
+            DTO for user presence status in SignalR messaging.
+            Used to notify clients when users come online/go offline.
+            </summary>
+        </member>
+        <member name="T:MessagingService.DTOs.OnlineUsersResponse">
+            <summary>
+            Response containing a list of online users.
+            </summary>
+        </member>
         <member name="T:MessagingService.DTOs.ReadReceiptDto">
             <summary>
             DTO for read receipt responses
@@ -137,6 +148,46 @@
         <member name="M:MessagingService.Services.IMessageServiceSpec.AcknowledgeMessageAsync(System.Guid,System.String)">
             <summary>
             Acknowledge message delivery (for delivery tracking)
+            </summary>
+        </member>
+        <member name="T:MessagingService.Services.InMemoryPresenceTracker">
+            <summary>
+            In-memory presence tracker using ConcurrentDictionary.
+            Thread-safe for single-server SignalR deployments.
+            For multi-server, replace with Redis-backed implementation.
+            </summary>
+        </member>
+        <member name="T:MessagingService.Services.IPresenceTracker">
+            <summary>
+            Tracks user online/offline presence via SignalR connection management.
+            Designed for single-server deployment; upgrade to Redis-backed when scaling.
+            </summary>
+        </member>
+        <member name="M:MessagingService.Services.IPresenceTracker.UserConnected(System.String,System.String)">
+            <summary>
+            Register a new SignalR connection for a user.
+            Returns true if this is the user's first connection (just came online).
+            </summary>
+        </member>
+        <member name="M:MessagingService.Services.IPresenceTracker.UserDisconnected(System.String,System.String)">
+            <summary>
+            Remove a SignalR connection for a user.
+            Returns true if this was the user's last connection (went offline).
+            </summary>
+        </member>
+        <member name="M:MessagingService.Services.IPresenceTracker.GetOnlineUsers">
+            <summary>
+            Get the list of currently online user IDs.
+            </summary>
+        </member>
+        <member name="M:MessagingService.Services.IPresenceTracker.IsOnline(System.String)">
+            <summary>
+            Check if a specific user has any active connections.
+            </summary>
+        </member>
+        <member name="M:MessagingService.Services.IPresenceTracker.GetConnectionsForUser(System.String)">
+            <summary>
+            Get all active connection IDs for a specific user.
             </summary>
         </member>
         <member name="T:MessagingService.Services.MessageServiceOptimized">

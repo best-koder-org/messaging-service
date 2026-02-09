@@ -106,6 +106,7 @@ builder.Services.AddScoped<IRateLimitingService, RateLimitingService>();
 builder.Services.AddScoped<IReportingService, ReportingService>();
 builder.Services.AddScoped<IMatchValidationService, MatchValidationService>();
 builder.Services.AddCorrelationIds();
+builder.Services.AddSingleton<MessagingService.Services.IPresenceTracker, MessagingService.Services.InMemoryPresenceTracker>();
 
 // Internal API Key Authentication for service-to-service calls
 builder.Services.AddScoped<InternalApiKeyAuthFilter>();

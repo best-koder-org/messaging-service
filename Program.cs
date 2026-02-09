@@ -68,7 +68,7 @@ builder.Services.AddKeycloakAuthentication(builder.Configuration, options =>
         {
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/messagingHub"))
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/messages"))
             {
                 context.Token = accessToken;
             }
@@ -265,7 +265,7 @@ app.MapHealthChecks("/health");
 app.MapPrometheusScrapingEndpoint("/metrics");
 
 // Map SignalR hub - Use the spec-compliant hub
-app.MapHub<MessagingHubSpec>("/messagingHub");
+app.MapHub<MessagingHubSpec>("/hubs/messages");
 
 // Ensure database is created
 using (var scope = app.Services.CreateScope())

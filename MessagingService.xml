@@ -31,6 +31,57 @@
             Delete all messages for a specific user (used during account deletion)
             </summary>
         </member>
+        <member name="T:MessagingService.Controllers.ReadReceiptsController">
+            <summary>
+            Manages read receipt tracking for messages.
+            Phase 1: REST API only. Phase 2 will add SignalR real-time push.
+            </summary>
+        </member>
+        <member name="M:MessagingService.Controllers.ReadReceiptsController.MarkAsRead(MessagingService.DTOs.MarkAsReadRequest)">
+            <summary>
+            Mark a message as read by the current user.
+            </summary>
+        </member>
+        <member name="M:MessagingService.Controllers.ReadReceiptsController.GetUnreadCount(System.String)">
+            <summary>
+            Get unread message count for a conversation.
+            </summary>
+        </member>
+        <member name="M:MessagingService.Controllers.ReadReceiptsController.GetReceiptsForMessage(System.Guid)">
+            <summary>
+            Get all read receipts for a specific message.
+            </summary>
+        </member>
+        <member name="T:MessagingService.DTOs.ReadReceiptDto">
+            <summary>
+            DTO for read receipt responses
+            </summary>
+        </member>
+        <member name="M:MessagingService.DTOs.ReadReceiptDto.#ctor(System.Guid,System.String,System.DateTime)">
+            <summary>
+            DTO for read receipt responses
+            </summary>
+        </member>
+        <member name="T:MessagingService.DTOs.MarkAsReadRequest">
+            <summary>
+            Request DTO for marking a message as read
+            </summary>
+        </member>
+        <member name="M:MessagingService.DTOs.MarkAsReadRequest.#ctor(System.Guid)">
+            <summary>
+            Request DTO for marking a message as read
+            </summary>
+        </member>
+        <member name="T:MessagingService.DTOs.UnreadCountDto">
+            <summary>
+            Response DTO for unread message count
+            </summary>
+        </member>
+        <member name="M:MessagingService.DTOs.UnreadCountDto.#ctor(System.String,System.Int32,System.Nullable{System.DateTime})">
+            <summary>
+            Response DTO for unread message count
+            </summary>
+        </member>
         <member name="T:MessagingService.Hubs.MessagingHubSpec">
             <summary>
             SignalR Hub for real-time messaging aligned with signalr-spec.md

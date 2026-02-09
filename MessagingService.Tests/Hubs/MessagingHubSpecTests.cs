@@ -113,7 +113,7 @@ public class MessagingHubSpecTests_Fixed : IAsyncLifetime
                         app.UseRouting();
                         app.UseEndpoints(endpoints =>
                         {
-                            endpoints.MapHub<MessagingHubSpec>("/messagingHub");
+                            endpoints.MapHub<MessagingHubSpec>("/hubs/messages");
                         });
                     });
             })
@@ -123,14 +123,14 @@ public class MessagingHubSpecTests_Fixed : IAsyncLifetime
 
         // Create connections with userId in query string
         _user1Connection = new HubConnectionBuilder()
-            .WithUrl($"{server.BaseAddress}messagingHub?userId={User1Id}", options =>
+            .WithUrl($"{server.BaseAddress}hubs/messages?userId={User1Id}", options =>
             {
                 options.HttpMessageHandlerFactory = _ => server.CreateHandler();
             })
             .Build();
 
         _user2Connection = new HubConnectionBuilder()
-            .WithUrl($"{server.BaseAddress}messagingHub?userId={User2Id}", options =>
+            .WithUrl($"{server.BaseAddress}hubs/messages?userId={User2Id}", options =>
             {
                 options.HttpMessageHandlerFactory = _ => server.CreateHandler();
             })

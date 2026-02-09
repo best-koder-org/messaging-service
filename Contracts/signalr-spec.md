@@ -3,7 +3,7 @@
 **MMP Status**: BASIC messaging only (send/receive), advanced features deferred to Phase 2
 
 ## Hub Route
-`/messagingHub`
+`/hubs/messages`
 
 ## Connection Requirements
 - JWT access token passed via `Authorization: Bearer` header OR query string `?access_token={token}`

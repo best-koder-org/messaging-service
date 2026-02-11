@@ -42,13 +42,13 @@ public class SendMessageHandler : IRequestHandler<SendMessageCommand, Result<Mes
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogWarning("Unauthorized message attempt from {SenderId} to {ReceiverId}: {Message}", 
+            _logger.LogWarning("Unauthorized message attempt from {SenderId} to {ReceiverId}: {Message}",
                 request.SenderId, request.ReceiverId, ex.Message);
             return Result<MessageDto>.Failure($"UNAUTHORIZED: {ex.Message}");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error sending message from {SenderId} to {ReceiverId}", 
+            _logger.LogError(ex, "Error sending message from {SenderId} to {ReceiverId}",
                 request.SenderId, request.ReceiverId);
             return Result<MessageDto>.Failure("Failed to send message");
         }

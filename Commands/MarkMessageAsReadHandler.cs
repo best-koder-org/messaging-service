@@ -24,7 +24,7 @@ public class MarkMessageAsReadHandler : IRequestHandler<MarkMessageAsReadCommand
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error marking message {MessageId} as read for user {UserId}", 
+            _logger.LogError(ex, "Error marking message {MessageId} as read for user {UserId}",
                 request.MessageId, request.UserId);
             return Result.Failure("Failed to mark message as read");
         }

@@ -32,7 +32,7 @@ public class MatchValidationService : IMatchValidationService
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("Match check failed with status {StatusCode} for users {User1}/{User2}", 
+                _logger.LogWarning("Match check failed with status {StatusCode} for users {User1}/{User2}",
                     response.StatusCode, userId1, userId2);
                 // Return false for security - no match confirmed
                 return false;

@@ -26,7 +26,7 @@ public class ContentModerationService : IContentModerationService
 {
     private readonly IPersonalInfoDetectionService _personalInfoDetection;
     private readonly ILogger<ContentModerationService> _logger;
-    
+
     // Prohibited content patterns
     private readonly string[] _prohibitedWords = {
         "damn", "shit", "fuck", "bitch", "ass", "cunt", "whore", "slut", "nigger", "faggot", "retard", "cunt", "pussy", "dick", "cock", "penis", "vagina", "boobs", "tits", "nude", "naked", "sex", "xxx", "porn", "prostitute", "escort", "hookup", "dtf", "nudes", "sexy", "hot", "horny", "kinky", "fetish", "bdsm", "anal", "oral", "blow", "suck", "masturbate", "orgasm", "cum", "jizz", "sperm", "semen", "erection", "hard", "wet", "tight", "loose", "virgin", "slut", "whore", "bitch", "cunt", "asshole", "motherfucker", "bastard", "prick", "douche", "scumbag", "loser", "idiot", "moron", "stupid", "dumb", "ugly", "fat", "skinny", "gross", "disgusting", "hate", "kill", "die", "suicide", "self-harm", "cut", "drugs", "cocaine", "heroin", "meth", "weed", "marijuana", "alcohol", "drunk", "high", "stoned", "money", "cash", "venmo", "paypal", "bitcoin", "crypto", "investment", "business", "mlm", "pyramid", "scheme", "loan", "credit", "debt", "instagram", "snapchat", "facebook", "twitter", "tiktok", "onlyfans", "telegram", "whatsapp", "kik", "skype", "discord", "zoom"
@@ -59,10 +59,10 @@ public class ContentModerationService : IContentModerationService
         if (personalInfoResult.HasPersonalInfo)
         {
             _logger.LogWarning($"Personal information detected: {personalInfoResult.InfoType}");
-            return new ModerationResult 
-            { 
-                IsApproved = false, 
-                Reason = "Personal information sharing is not allowed for safety" 
+            return new ModerationResult
+            {
+                IsApproved = false,
+                Reason = "Personal information sharing is not allowed for safety"
             };
         }
 
@@ -74,10 +74,10 @@ public class ContentModerationService : IContentModerationService
             if (lowerContent.Contains(word))
             {
                 _logger.LogWarning($"Prohibited word detected: {word}");
-                return new ModerationResult 
-                { 
-                    IsApproved = false, 
-                    Reason = "Inappropriate language detected" 
+                return new ModerationResult
+                {
+                    IsApproved = false,
+                    Reason = "Inappropriate language detected"
                 };
             }
         }
@@ -88,10 +88,10 @@ public class ContentModerationService : IContentModerationService
             if (Regex.IsMatch(lowerContent, pattern, RegexOptions.IgnoreCase))
             {
                 _logger.LogWarning($"Harmful pattern detected: {pattern}");
-                return new ModerationResult 
-                { 
-                    IsApproved = false, 
-                    Reason = "Content contains potentially harmful material" 
+                return new ModerationResult
+                {
+                    IsApproved = false,
+                    Reason = "Content contains potentially harmful material"
                 };
             }
         }
@@ -100,10 +100,10 @@ public class ContentModerationService : IContentModerationService
         var capsCount = content.Count(char.IsUpper);
         if (capsCount > content.Length * 0.7 && content.Length > 10)
         {
-            return new ModerationResult 
-            { 
-                IsApproved = false, 
-                Reason = "Excessive use of capital letters" 
+            return new ModerationResult
+            {
+                IsApproved = false,
+                Reason = "Excessive use of capital letters"
             };
         }
 
@@ -142,11 +142,11 @@ public class PersonalInfoDetectionService : IPersonalInfoDetectionService
             {
                 var infoType = GetInfoType(pattern);
                 _logger.LogWarning($"Personal information detected: {infoType} in content: {content}");
-                
-                return new PersonalInfoResult 
-                { 
-                    HasPersonalInfo = true, 
-                    InfoType = infoType 
+
+                return new PersonalInfoResult
+                {
+                    HasPersonalInfo = true,
+                    InfoType = infoType
                 };
             }
         }
@@ -157,7 +157,7 @@ public class PersonalInfoDetectionService : IPersonalInfoDetectionService
     private string GetInfoType(Regex pattern)
     {
         var patternString = pattern.ToString();
-        
+
         if (patternString.Contains("@")) return "Email Address";
         if (patternString.Contains("3}-\\d{2}-\\d{4}")) return "Social Security Number";
         if (patternString.Contains("3}-\\d{3}-\\d{4}")) return "Phone Number";
@@ -167,7 +167,7 @@ public class PersonalInfoDetectionService : IPersonalInfoDetectionService
         if (patternString.Contains("4}\\s*\\d{4}")) return "Credit Card Number";
         if (patternString.Contains("instagram|snapchat")) return "Social Media Handle";
         if (patternString.Contains("paypal|venmo")) return "Payment Handle";
-        
+
         return "Personal Information";
     }
 }
@@ -177,7 +177,7 @@ public class SpamDetectionService : ISpamDetectionService
     private readonly Dictionary<string, List<DateTime>> _userMessageHistory = new();
     private readonly Dictionary<string, Dictionary<string, int>> _userContentFrequency = new();
     private readonly ILogger<SpamDetectionService> _logger;
-    
+
     private const int MaxMessagesPerMinute = 10;
     private const int MaxMessagesPerHour = 100;
     private const int MaxSameContentCount = 3;
@@ -190,7 +190,7 @@ public class SpamDetectionService : ISpamDetectionService
     public async Task<bool> IsSpamAsync(string userId, string content)
     {
         var now = DateTime.UtcNow;
-        
+
         // Initialize user history if not exists
         if (!_userMessageHistory.ContainsKey(userId))
         {
@@ -257,7 +257,7 @@ public class RateLimitingService : IRateLimitingService
 {
     private readonly Dictionary<string, List<DateTime>> _userRequests = new();
     private readonly ILogger<RateLimitingService> _logger;
-    
+
     private const int MaxRequestsPerMinute = 20;
 
     public RateLimitingService(ILogger<RateLimitingService> logger)
@@ -268,23 +268,23 @@ public class RateLimitingService : IRateLimitingService
     public async Task<bool> IsAllowedAsync(string userId)
     {
         var now = DateTime.UtcNow;
-        
+
         if (!_userRequests.ContainsKey(userId))
         {
             _userRequests[userId] = new List<DateTime>();
         }
 
         var userRequests = _userRequests[userId];
-        
+
         // Clean requests older than 1 minute
         userRequests.RemoveAll(time => (now - time).TotalMinutes > 1);
-        
+
         if (userRequests.Count >= MaxRequestsPerMinute)
         {
             _logger.LogWarning($"Rate limit exceeded for user {userId}: {userRequests.Count} requests");
             return false;
         }
-        
+
         userRequests.Add(now);
         return true;
     }

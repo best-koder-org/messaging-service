@@ -24,12 +24,12 @@ public class GetConversationHandler : IRequestHandler<GetConversationQuery, Resu
                 request.OtherUserId,
                 request.Page,
                 request.PageSize);
-            
+
             return Result<object>.Success(messages);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting conversation between {UserId} and {OtherUserId}", 
+            _logger.LogError(ex, "Error getting conversation between {UserId} and {OtherUserId}",
                 request.UserId, request.OtherUserId);
             return Result<object>.Failure("Failed to retrieve conversation");
         }

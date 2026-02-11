@@ -31,15 +31,15 @@ public class MessagesController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> SendMessage([FromBody] SendMessageRequestRest request)
     {
-        _logger.LogInformation("POST /api/messages called. User.Identity.IsAuthenticated: {IsAuth}, Claims count: {ClaimCount}", 
+        _logger.LogInformation("POST /api/messages called. User.Identity.IsAuthenticated: {IsAuth}, Claims count: {ClaimCount}",
             User.Identity?.IsAuthenticated, User.Claims.Count());
-        
+
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         _logger.LogInformation("Extracted userId from ClaimTypes.NameIdentifier: {UserId}", userId ?? "NULL");
-        
+
         if (string.IsNullOrEmpty(userId))
         {
-            _logger.LogWarning("Unauthorized: No userId found in claims. Available claims: {Claims}", 
+            _logger.LogWarning("Unauthorized: No userId found in claims. Available claims: {Claims}",
                 string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}")));
             return Unauthorized();
         }
@@ -89,10 +89,10 @@ public class MessagesController : ControllerBase
 
     [HttpGet("conversation/{otherUserId}")]
     public async Task<IActionResult> GetConversation(
-        string otherUserId, 
+        string otherUserId,
         [FromQuery] int? page = null,
         [FromQuery] int? pageSize = null,
-        [FromQuery] int? limit = null, 
+        [FromQuery] int? limit = null,
         [FromQuery] int? offset = null)
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -105,12 +105,12 @@ public class MessagesController : ControllerBase
         var actualPageSize = limit ?? pageSize ?? 50;
         var actualPage = page ?? (offset.HasValue ? (offset.Value / actualPageSize) + 1 : 1);
 
-        var query = new GetConversationQuery 
-        { 
-            UserId = userId, 
-            OtherUserId = otherUserId, 
-            Page = actualPage, 
-            PageSize = actualPageSize 
+        var query = new GetConversationQuery
+        {
+            UserId = userId,
+            OtherUserId = otherUserId,
+            Page = actualPage,
+            PageSize = actualPageSize
         };
         var result = await _mediator.Send(query);
 

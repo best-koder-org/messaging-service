@@ -33,36 +33,36 @@ public class MessagingHub : Hub
     public override async Task OnConnectedAsync()
     {
         var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        
+
         if (string.IsNullOrEmpty(userId))
         {
             Context.Abort();
             return;
         }
-        
+
         await Groups.AddToGroupAsync(Context.ConnectionId, userId);
         _logger.LogInformation($"User {userId} connected with connection {Context.ConnectionId}");
-        
+
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        
+
         if (!string.IsNullOrEmpty(userId))
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, userId);
             _logger.LogInformation($"User {userId} disconnected");
         }
-        
+
         await base.OnDisconnectedAsync(exception);
     }
 
     public async Task SendMessage(string receiverId, string content, MessageType type = MessageType.Text)
     {
         var senderId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        
+
         if (string.IsNullOrEmpty(senderId))
         {
             await Clients.Caller.SendAsync("Error", "Authentication required");
@@ -104,7 +104,7 @@ public class MessagingHub : Hub
 
             // Send message
             var message = await _messageService.SendMessageAsync(senderId, receiverId, content, type);
-            
+
             // Send to both users
             await Clients.Group(receiverId).SendAsync("ReceiveMessage", new
             {
@@ -140,7 +140,7 @@ public class MessagingHub : Hub
     public async Task MarkAsRead(int messageId)
     {
         var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        
+
         if (string.IsNullOrEmpty(userId))
         {
             await Clients.Caller.SendAsync("Error", "Authentication required");
@@ -162,7 +162,7 @@ public class MessagingHub : Hub
     public async Task JoinConversation(string conversationId)
     {
         var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        
+
         if (string.IsNullOrEmpty(userId))
         {
             Context.Abort();
@@ -176,7 +176,7 @@ public class MessagingHub : Hub
     public async Task LeaveConversation(string conversationId)
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"conversation_{conversationId}");
-        
+
         var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         _logger.LogInformation($"User {userId} left conversation {conversationId}");
     }

@@ -21,7 +21,7 @@ public class MessageService : IMessageService
     private readonly IMatchValidationService _matchValidationService;
 
     public MessageService(
-        MessagingDbContext context, 
+        MessagingDbContext context,
         ILogger<MessageService> logger,
         IMatchValidationService matchValidationService)
     {
@@ -36,13 +36,13 @@ public class MessageService : IMessageService
         var hasMatch = await _matchValidationService.AreUsersMatchedAsync(senderId, receiverId);
         if (!hasMatch)
         {
-            _logger.LogWarning("Message blocked: {Sender} attempted to message {Receiver} without active match", 
+            _logger.LogWarning("Message blocked: {Sender} attempted to message {Receiver} without active match",
                 senderId, receiverId);
             throw new UnauthorizedAccessException("Cannot send message to non-matched user");
         }
-        
+
         var conversationId = GenerateConversationId(senderId, receiverId);
-        
+
         var message = new Message
         {
             SenderId = senderId,
@@ -64,11 +64,11 @@ public class MessageService : IMessageService
     public async Task<List<Message>> GetConversationAsync(string userId, string otherUserId, int page = 1, int pageSize = 50)
     {
         var conversationId = GenerateConversationId(userId, otherUserId);
-        
+
         return await _context.Messages
             .AsNoTracking()
-            .Where(m => m.ConversationId == conversationId && 
-                       !m.IsDeleted && 
+            .Where(m => m.ConversationId == conversationId &&
+                       !m.IsDeleted &&
                        m.ModerationStatus == ModerationStatus.Approved)
             .OrderByDescending(m => m.SentAt)
             .Skip((page - 1) * pageSize)
@@ -81,8 +81,8 @@ public class MessageService : IMessageService
         // Fetch all relevant messages first to avoid EF Core projection issues
         var messages = await _context.Messages
             .AsNoTracking()
-            .Where(m => (m.SenderId == userId || m.ReceiverId == userId) && 
-                       !m.IsDeleted && 
+            .Where(m => (m.SenderId == userId || m.ReceiverId == userId) &&
+                       !m.IsDeleted &&
                        m.ModerationStatus == ModerationStatus.Approved)
             .OrderByDescending(m => m.SentAt)
             .ToListAsync();

@@ -35,22 +35,22 @@ public class MessageServiceSpec : IMessageServiceSpec
         {
             // Call matchmaking service to verify match participants
             var response = await _httpClient.GetAsync($"/api/matchmaking/matches/{userId}");
-            
+
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("Failed to verify match {MatchId} for user {UserId}: {StatusCode}", 
+                _logger.LogWarning("Failed to verify match {MatchId} for user {UserId}: {StatusCode}",
                     matchId, userId, response.StatusCode);
                 return false;
             }
 
             var result = await response.Content.ReadFromJsonAsync<MatchesResponse>();
-            
+
             if (result?.Matches == null)
                 return false;
 
             // Convert Guid matchId to int for comparison with MatchDto.MatchId
             // Use simplified conversion (take first digits)
-            var matchIdInt = int.Parse(matchId.ToString().Substring(0, 8), 
+            var matchIdInt = int.Parse(matchId.ToString().Substring(0, 8),
                 System.Globalization.NumberStyles.HexNumber);
 
             // Check if match exists in user's matches
@@ -70,7 +70,7 @@ public class MessageServiceSpec : IMessageServiceSpec
     {
         // Get the other participant
         var receiverId = await GetOtherParticipant(matchId, senderId);
-        
+
         if (string.IsNullOrEmpty(receiverId))
         {
             throw new InvalidOperationException("Cannot determine receiver for match");
@@ -93,7 +93,7 @@ public class MessageServiceSpec : IMessageServiceSpec
         _context.Messages.Add(message);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Message {MessageId} sent in match {MatchId} from {SenderId} to {ReceiverId}", 
+        _logger.LogInformation("Message {MessageId} sent in match {MatchId} from {SenderId} to {ReceiverId}",
             message.Id, matchId, senderId, receiverId);
 
         // Return DTO for SignalR broadcast
@@ -120,7 +120,7 @@ public class MessageServiceSpec : IMessageServiceSpec
         {
             // Call matchmaking service to get match details
             var response = await _httpClient.GetAsync($"/api/matchmaking/matches/{userId}");
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Failed to get match details for {MatchId}", matchId);
@@ -128,17 +128,17 @@ public class MessageServiceSpec : IMessageServiceSpec
             }
 
             var result = await response.Content.ReadFromJsonAsync<MatchesResponse>();
-            
+
             if (result?.Matches == null)
                 return string.Empty;
 
             // Convert Guid matchId to int for comparison
-            var matchIdInt = int.Parse(matchId.ToString().Substring(0, 8), 
+            var matchIdInt = int.Parse(matchId.ToString().Substring(0, 8),
                 System.Globalization.NumberStyles.HexNumber);
 
             // Find the specific match and return the other user
             var match = result.Matches.FirstOrDefault(m => m.MatchId == matchIdInt);
-            
+
             if (match == null)
                 return string.Empty;
 
@@ -162,7 +162,7 @@ public class MessageServiceSpec : IMessageServiceSpec
         {
             // Convert Guid back to int ID (simplified - in production would use Guid in DB)
             var messageIdInt = int.Parse(messageId.ToString().Substring(0, 10).TrimStart('0').PadLeft(1, '1'));
-            
+
             var message = await _context.Messages
                 .FirstOrDefaultAsync(m => m.Id == messageIdInt && m.ReceiverId == userId);
 
@@ -175,7 +175,7 @@ public class MessageServiceSpec : IMessageServiceSpec
                     message.IsRead = true;
                     message.ReadAt = DateTime.UtcNow;
                     await _context.SaveChangesAsync();
-                    
+
                     _logger.LogInformation("Message {MessageId} acknowledged by {UserId}", messageId, userId);
                 }
             }

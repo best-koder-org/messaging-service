@@ -6,7 +6,7 @@ public class RateLimitingMiddleware
     private readonly ILogger<RateLimitingMiddleware> _logger;
     private readonly Dictionary<string, List<DateTime>> _requestHistory = new();
     private readonly object _lock = new();
-    
+
     private const int MaxRequestsPerMinute = 60;
 
     public RateLimitingMiddleware(RequestDelegate next, ILogger<RateLimitingMiddleware> logger)
@@ -18,7 +18,7 @@ public class RateLimitingMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         var clientIp = GetClientIpAddress(context);
-        
+
         if (!IsRequestAllowed(clientIp))
         {
             context.Response.StatusCode = 429; // Too Many Requests
@@ -34,23 +34,23 @@ public class RateLimitingMiddleware
         lock (_lock)
         {
             var now = DateTime.UtcNow;
-            
+
             if (!_requestHistory.ContainsKey(clientIp))
             {
                 _requestHistory[clientIp] = new List<DateTime>();
             }
 
             var requests = _requestHistory[clientIp];
-            
+
             // Remove requests older than 1 minute
             requests.RemoveAll(time => (now - time).TotalMinutes > 1);
-            
+
             if (requests.Count >= MaxRequestsPerMinute)
             {
                 _logger.LogWarning($"Rate limit exceeded for IP: {clientIp}");
                 return false;
             }
-            
+
             requests.Add(now);
             return true;
         }

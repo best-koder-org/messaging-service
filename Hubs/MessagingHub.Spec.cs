@@ -32,28 +32,28 @@ public class MessagingHubSpec : Hub
     public override async Task OnConnectedAsync()
     {
         var userId = GetUserId();
-        
+
         if (string.IsNullOrEmpty(userId))
         {
             Context.Abort();
             return;
         }
-        
-        _logger.LogInformation("User {UserId} connected with connection {ConnectionId}", 
+
+        _logger.LogInformation("User {UserId} connected with connection {ConnectionId}",
             userId, Context.ConnectionId);
-        
+
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         var userId = GetUserId();
-        
+
         if (!string.IsNullOrEmpty(userId))
         {
             _logger.LogInformation("User {UserId} disconnected", userId);
         }
-        
+
         await base.OnDisconnectedAsync(exception);
     }
 
@@ -64,7 +64,7 @@ public class MessagingHubSpec : Hub
     public async Task SendMessage(SendMessageRequest request)
     {
         var senderId = GetUserId();
-        
+
         if (string.IsNullOrEmpty(senderId))
         {
             throw new HubException("authentication-required");
@@ -85,10 +85,10 @@ public class MessagingHubSpec : Hub
             // Check if users have blocked each other (P0 safety requirement)
             var isBlocked = await _safetyService.IsBlockedAsync(senderId, receiverId);
             var isBlockedReverse = await _safetyService.IsBlockedAsync(receiverId, senderId);
-            
+
             if (isBlocked || isBlockedReverse)
             {
-                _logger.LogWarning("Messaging blocked between users {SenderId} and {ReceiverId} in match {MatchId}", 
+                _logger.LogWarning("Messaging blocked between users {SenderId} and {ReceiverId} in match {MatchId}",
                     senderId, receiverId, request.MatchId);
                 throw new HubException("messaging-blocked");
             }
@@ -103,7 +103,7 @@ public class MessagingHubSpec : Hub
             var moderationResult = await _contentModeration.ModerateContentAsync(request.Body);
             if (!moderationResult.IsApproved)
             {
-                _logger.LogWarning("Content blocked from user {SenderId} in match {MatchId}: {Reason}", 
+                _logger.LogWarning("Content blocked from user {SenderId} in match {MatchId}: {Reason}",
                     senderId, request.MatchId, moderationResult.Reason);
                 throw new HubException("content-blocked");
             }
@@ -115,7 +115,7 @@ public class MessagingHubSpec : Hub
             await Clients.User(receiverId).SendAsync("MessageReceived", messageDto);
             await Clients.Caller.SendAsync("MessageReceived", messageDto);
 
-            _logger.LogInformation("Message {MessageId} sent in match {MatchId}", 
+            _logger.LogInformation("Message {MessageId} sent in match {MatchId}",
                 messageDto.MessageId, request.MatchId);
         }
         catch (HubException)
@@ -137,7 +137,7 @@ public class MessagingHubSpec : Hub
     public async Task Acknowledge(AcknowledgeRequest request)
     {
         var userId = GetUserId();
-        
+
         if (string.IsNullOrEmpty(userId))
         {
             throw new HubException("authentication-required");
@@ -146,8 +146,8 @@ public class MessagingHubSpec : Hub
         try
         {
             await _messageService.AcknowledgeMessageAsync(request.MessageId, userId);
-            
-            _logger.LogInformation("Message {MessageId} acknowledged by {UserId}", 
+
+            _logger.LogInformation("Message {MessageId} acknowledged by {UserId}",
                 request.MessageId, userId);
         }
         catch (Exception ex)
@@ -159,7 +159,7 @@ public class MessagingHubSpec : Hub
 
     private string? GetUserId()
     {
-        return Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+        return Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
             ?? Context.User?.FindFirst("sub")?.Value;
     }
 }

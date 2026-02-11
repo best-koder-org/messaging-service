@@ -30,8 +30,8 @@ public class MessageServiceOptimized
         // Use a CTE-like approach: Get latest message per conversation in one query
         var latestMessages = await _context.Messages
             .AsNoTracking()
-            .Where(m => (m.SenderId == userId || m.ReceiverId == userId) && 
-                       !m.IsDeleted && 
+            .Where(m => (m.SenderId == userId || m.ReceiverId == userId) &&
+                       !m.IsDeleted &&
                        m.ModerationStatus == ModerationStatus.Approved)
             .GroupBy(m => m.ConversationId)
             .Select(g => new

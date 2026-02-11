@@ -17,7 +17,7 @@ public class InternalApiKeyAuthFilter : IAuthorizationFilter
     public void OnAuthorization(AuthorizationFilterContext context)
     {
         var validApiKeys = _configuration["InternalAuth:ValidApiKeys"]?.Split(',') ?? Array.Empty<string>();
-        
+
         if (validApiKeys.Length == 0)
         {
             _logger.LogWarning("No valid internal API keys configured - allowing request (DEV mode)");

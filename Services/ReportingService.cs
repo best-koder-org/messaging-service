@@ -43,7 +43,7 @@ public class ReportingService : IReportingService
             };
 
             _userReports[reportedUserId].Add(report);
-            
+
             _logger.LogWarning($"User {reportedUserId} reported by {reporterId}: {reason}");
 
             // Check if user should be banned

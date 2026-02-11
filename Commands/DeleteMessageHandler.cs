@@ -20,17 +20,17 @@ public class DeleteMessageHandler : IRequestHandler<DeleteMessageCommand, Result
         try
         {
             var success = await _messageService.DeleteMessageAsync(request.MessageId, request.UserId);
-            
+
             if (!success)
             {
                 return Result.Failure("Message not found or you don't have permission to delete it");
             }
-            
+
             return Result.Success();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting message {MessageId} for user {UserId}", 
+            _logger.LogError(ex, "Error deleting message {MessageId} for user {UserId}",
                 request.MessageId, request.UserId);
             return Result.Failure("Failed to delete message");
         }

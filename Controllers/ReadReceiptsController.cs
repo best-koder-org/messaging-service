@@ -1,12 +1,14 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using MessagingService.Data;
 using MessagingService.DTOs;
 
 namespace MessagingService.Controllers;
 
 /// <summary>
 /// Manages read receipt tracking for messages.
-/// Phase 1: REST API only. Phase 2 will add SignalR real-time push.
+/// Uses the Message entity's IsRead/ReadAt fields persisted in the DB.
 /// </summary>
 [ApiController]
 [Route("api/readreceipts")]
@@ -14,43 +16,51 @@ namespace MessagingService.Controllers;
 public class ReadReceiptsController : ControllerBase
 {
     private readonly ILogger<ReadReceiptsController> _logger;
+    private readonly MessagingDbContext _context;
 
-    // In-memory store for MVP — will be replaced with EF/Redis
-    private static readonly Dictionary<Guid, List<ReadReceiptDto>> _receipts = new();
-    private static readonly object _lock = new();
-
-    public ReadReceiptsController(ILogger<ReadReceiptsController> logger)
+    public ReadReceiptsController(
+        ILogger<ReadReceiptsController> logger,
+        MessagingDbContext context)
     {
         _logger = logger;
+        _context = context;
     }
 
     /// <summary>
     /// Mark a message as read by the current user.
+    /// Updates the Message entity's IsRead and ReadAt fields in the database.
     /// </summary>
     [HttpPost]
-    public IActionResult MarkAsRead([FromBody] MarkAsReadRequest request)
+    public async Task<IActionResult> MarkAsRead([FromBody] MarkAsReadRequest request)
     {
         var userId = User.FindFirst("sub")?.Value
-            ?? User.FindFirst("preferred_username")?.Value
-            ?? "unknown";
+            ?? User.FindFirst("preferred_username")?.Value;
+
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
+
+        var message = await _context.Messages
+            .FirstOrDefaultAsync(m => m.Id == request.MessageId && m.ReceiverId == userId);
+
+        if (message == null)
+        {
+            _logger.LogWarning("[ReadReceipt] Message {MessageId} not found for user {UserId}",
+                request.MessageId, userId);
+            return NotFound();
+        }
+
+        if (!message.IsRead)
+        {
+            message.IsRead = true;
+            message.ReadAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
 
         var receipt = new ReadReceiptDto(
             MessageId: request.MessageId,
             ReaderId: userId,
-            ReadAt: DateTime.UtcNow
+            ReadAt: message.ReadAt ?? DateTime.UtcNow
         );
-
-        lock (_lock)
-        {
-            if (!_receipts.ContainsKey(request.MessageId))
-                _receipts[request.MessageId] = new List<ReadReceiptDto>();
-
-            // Don't add duplicate receipts for same reader
-            if (!_receipts[request.MessageId].Any(r => r.ReaderId == userId))
-            {
-                _receipts[request.MessageId].Add(receipt);
-            }
-        }
 
         _logger.LogInformation(
             "[ReadReceipt] Message {MessageId} marked as read by {UserId}",
@@ -61,37 +71,60 @@ public class ReadReceiptsController : ControllerBase
 
     /// <summary>
     /// Get unread message count for a conversation.
+    /// Queries the database for messages where IsRead is false.
     /// </summary>
     [HttpGet("{conversationId}/unread-count")]
-    public IActionResult GetUnreadCount(string conversationId)
+    public async Task<IActionResult> GetUnreadCount(string conversationId)
     {
         var userId = User.FindFirst("sub")?.Value
-            ?? User.FindFirst("preferred_username")?.Value
-            ?? "unknown";
+            ?? User.FindFirst("preferred_username")?.Value;
 
-        // MVP: return 0 unread since we don't have conversation-message mapping yet
-        // This endpoint structure is correct for when we wire up the real DB
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
+
+        var unreadCount = await _context.Messages
+            .CountAsync(m =>
+                m.ConversationId == conversationId
+                && m.ReceiverId == userId
+                && !m.IsRead
+                && !m.IsDeleted);
+
+        var lastRead = await _context.Messages
+            .Where(m =>
+                m.ConversationId == conversationId
+                && m.ReceiverId == userId
+                && m.IsRead)
+            .OrderByDescending(m => m.ReadAt)
+            .Select(m => m.ReadAt)
+            .FirstOrDefaultAsync();
+
         var result = new UnreadCountDto(
             ConversationId: conversationId,
-            UnreadCount: 0,
-            LastReadAt: DateTime.UtcNow
+            UnreadCount: unreadCount,
+            LastReadAt: lastRead ?? DateTime.MinValue
         );
 
         return Ok(result);
     }
 
     /// <summary>
-    /// Get all read receipts for a specific message.
+    /// Get read receipt for a specific message.
     /// </summary>
-    [HttpGet("message/{messageId:guid}")]
-    public IActionResult GetReceiptsForMessage(Guid messageId)
+    [HttpGet("message/{messageId:int}")]
+    public async Task<IActionResult> GetReceiptsForMessage(int messageId)
     {
-        lock (_lock)
-        {
-            if (_receipts.TryGetValue(messageId, out var receipts))
-                return Ok(receipts);
-        }
+        var message = await _context.Messages
+            .FirstOrDefaultAsync(m => m.Id == messageId);
 
-        return Ok(Array.Empty<ReadReceiptDto>());
+        if (message == null || !message.IsRead)
+            return Ok(Array.Empty<ReadReceiptDto>());
+
+        var receipt = new ReadReceiptDto(
+            MessageId: messageId,
+            ReaderId: message.ReceiverId,
+            ReadAt: message.ReadAt ?? DateTime.UtcNow
+        );
+
+        return Ok(new[] { receipt });
     }
 }

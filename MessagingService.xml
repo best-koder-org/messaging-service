@@ -34,22 +34,24 @@
         <member name="T:MessagingService.Controllers.ReadReceiptsController">
             <summary>
             Manages read receipt tracking for messages.
-            Phase 1: REST API only. Phase 2 will add SignalR real-time push.
+            Uses the Message entity's IsRead/ReadAt fields persisted in the DB.
             </summary>
         </member>
         <member name="M:MessagingService.Controllers.ReadReceiptsController.MarkAsRead(MessagingService.DTOs.MarkAsReadRequest)">
             <summary>
             Mark a message as read by the current user.
+            Updates the Message entity's IsRead and ReadAt fields in the database.
             </summary>
         </member>
         <member name="M:MessagingService.Controllers.ReadReceiptsController.GetUnreadCount(System.String)">
             <summary>
             Get unread message count for a conversation.
+            Queries the database for messages where IsRead is false.
             </summary>
         </member>
-        <member name="M:MessagingService.Controllers.ReadReceiptsController.GetReceiptsForMessage(System.Guid)">
+        <member name="M:MessagingService.Controllers.ReadReceiptsController.GetReceiptsForMessage(System.Int32)">
             <summary>
-            Get all read receipts for a specific message.
+            Get read receipt for a specific message.
             </summary>
         </member>
         <member name="T:MessagingService.DTOs.PresenceDto">
@@ -68,7 +70,7 @@
             DTO for read receipt responses
             </summary>
         </member>
-        <member name="M:MessagingService.DTOs.ReadReceiptDto.#ctor(System.Guid,System.String,System.DateTime)">
+        <member name="M:MessagingService.DTOs.ReadReceiptDto.#ctor(System.Int32,System.String,System.DateTime)">
             <summary>
             DTO for read receipt responses
             </summary>
@@ -78,7 +80,7 @@
             Request DTO for marking a message as read
             </summary>
         </member>
-        <member name="M:MessagingService.DTOs.MarkAsReadRequest.#ctor(System.Guid)">
+        <member name="M:MessagingService.DTOs.MarkAsReadRequest.#ctor(System.Int32)">
             <summary>
             Request DTO for marking a message as read
             </summary>
@@ -126,26 +128,26 @@
         </member>
         <member name="T:MessagingService.Services.IMessageServiceSpec">
             <summary>
-            Message service specification interface for SignalR hub
-            Defines core messaging operations per signalr-spec.md
+            Message service specification interface for SignalR hub.
+            Uses int IDs matching MatchmakingService entity types.
             </summary>
         </member>
-        <member name="M:MessagingService.Services.IMessageServiceSpec.IsMatchParticipant(System.Guid,System.String)">
+        <member name="M:MessagingService.Services.IMessageServiceSpec.IsMatchParticipant(System.Int32,System.String)">
             <summary>
             Check if a user is a participant in a match
             </summary>
         </member>
-        <member name="M:MessagingService.Services.IMessageServiceSpec.SendMessageAsync(System.Guid,System.String,System.String)">
+        <member name="M:MessagingService.Services.IMessageServiceSpec.SendMessageAsync(System.Int32,System.String,System.String)">
             <summary>
             Send a message within a match and persist it
             </summary>
         </member>
-        <member name="M:MessagingService.Services.IMessageServiceSpec.GetOtherParticipant(System.Guid,System.String)">
+        <member name="M:MessagingService.Services.IMessageServiceSpec.GetOtherParticipant(System.Int32,System.String)">
             <summary>
             Get the other participant in a match (not the current user)
             </summary>
         </member>
-        <member name="M:MessagingService.Services.IMessageServiceSpec.AcknowledgeMessageAsync(System.Guid,System.String)">
+        <member name="M:MessagingService.Services.IMessageServiceSpec.AcknowledgeMessageAsync(System.Int32,System.String)">
             <summary>
             Acknowledge message delivery (for delivery tracking)
             </summary>
@@ -206,30 +208,30 @@
         </member>
         <member name="T:MessagingService.Services.MessageServiceSpec">
             <summary>
-            Implementation of IMessageServiceSpec for SignalR messaging hub
-            Handles match-based messaging with persistence and delivery tracking
+            Implementation of IMessageServiceSpec for SignalR messaging hub.
+            Handles match-based messaging with persistence and delivery tracking.
+            Uses int IDs matching MatchmakingService entity types — no Guid conversions.
             </summary>
         </member>
-        <member name="M:MessagingService.Services.MessageServiceSpec.IsMatchParticipant(System.Guid,System.String)">
+        <member name="M:MessagingService.Services.MessageServiceSpec.IsMatchParticipant(System.Int32,System.String)">
             <summary>
-            Check if a user is a participant in a match
-            Calls MatchmakingService to verify match ownership
+            Check if a user is a participant in a match.
+            Calls MatchmakingService to verify match ownership.
             </summary>
         </member>
-        <member name="M:MessagingService.Services.MessageServiceSpec.SendMessageAsync(System.Guid,System.String,System.String)">
+        <member name="M:MessagingService.Services.MessageServiceSpec.SendMessageAsync(System.Int32,System.String,System.String)">
             <summary>
-            Send a message within a match and persist it
+            Send a message within a match and persist it.
             </summary>
         </member>
-        <member name="M:MessagingService.Services.MessageServiceSpec.GetOtherParticipant(System.Guid,System.String)">
+        <member name="M:MessagingService.Services.MessageServiceSpec.GetOtherParticipant(System.Int32,System.String)">
             <summary>
-            Get the other participant in a match (not the current user)
+            Get the other participant in a match (not the current user).
             </summary>
         </member>
-        <member name="M:MessagingService.Services.MessageServiceSpec.AcknowledgeMessageAsync(System.Guid,System.String)">
+        <member name="M:MessagingService.Services.MessageServiceSpec.AcknowledgeMessageAsync(System.Int32,System.String)">
             <summary>
-            Acknowledge message delivery (for delivery tracking)
-            Basic implementation - updates deliveredAt timestamp
+            Acknowledge message delivery (for delivery tracking).
             </summary>
         </member>
         <member name="T:MessagingService.Services.MessagingMetricsService">

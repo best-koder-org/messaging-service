@@ -231,11 +231,9 @@ builder.Services.AddOpenTelemetry()
         }));
 
 // Create custom meters for business metrics
-System.Diagnostics.Metrics.Meter customMeter = new("MessagingService");
-var messagesSentCounter = customMeter.CreateCounter<long>("messages_sent_total", description: "Total number of messages sent");
-var messagesModeratedCounter = customMeter.CreateCounter<long>("messages_moderated_total", description: "Total number of messages moderated/blocked");
-var messageDeliveryDuration = customMeter.CreateHistogram<double>("message_delivery_duration_ms", description: "Duration of message delivery via SignalR in milliseconds");
-var spamDetectionScore = customMeter.CreateHistogram<double>("spam_detection_score", description: "Distribution of spam detection scores");
+
+// Register injectable business metrics
+builder.Services.AddSingleton<MessagingService.Metrics.MessagingServiceMetrics>();
 
 var app = builder.Build();
 

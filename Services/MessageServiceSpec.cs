@@ -6,8 +6,9 @@ using Microsoft.EntityFrameworkCore;
 namespace MessagingService.Services;
 
 /// <summary>
-/// Implementation of IMessageServiceSpec for SignalR messaging hub
-/// Handles match-based messaging with persistence and delivery tracking
+/// Implementation of IMessageServiceSpec for SignalR messaging hub.
+/// Handles match-based messaging with persistence and delivery tracking.
+/// Uses int IDs matching MatchmakingService entity types — no Guid conversions.
 /// </summary>
 public class MessageServiceSpec : IMessageServiceSpec
 {
@@ -26,14 +27,13 @@ public class MessageServiceSpec : IMessageServiceSpec
     }
 
     /// <summary>
-    /// Check if a user is a participant in a match
-    /// Calls MatchmakingService to verify match ownership
+    /// Check if a user is a participant in a match.
+    /// Calls MatchmakingService to verify match ownership.
     /// </summary>
-    public async Task<bool> IsMatchParticipant(Guid matchId, string userId)
+    public async Task<bool> IsMatchParticipant(int matchId, string userId)
     {
         try
         {
-            // Call matchmaking service to verify match participants
             var response = await _httpClient.GetAsync($"/api/matchmaking/matches/{userId}");
 
             if (!response.IsSuccessStatusCode)
@@ -48,13 +48,7 @@ public class MessageServiceSpec : IMessageServiceSpec
             if (result?.Matches == null)
                 return false;
 
-            // Convert Guid matchId to int for comparison with MatchDto.MatchId
-            // Use simplified conversion (take first digits)
-            var matchIdInt = int.Parse(matchId.ToString().Substring(0, 8),
-                System.Globalization.NumberStyles.HexNumber);
-
-            // Check if match exists in user's matches
-            return result.Matches.Any(m => m.MatchId == matchIdInt);
+            return result.Matches.Any(m => m.MatchId == matchId);
         }
         catch (Exception ex)
         {
@@ -64,11 +58,10 @@ public class MessageServiceSpec : IMessageServiceSpec
     }
 
     /// <summary>
-    /// Send a message within a match and persist it
+    /// Send a message within a match and persist it.
     /// </summary>
-    public async Task<MessageDto> SendMessageAsync(Guid matchId, string senderId, string body)
+    public async Task<MessageDto> SendMessageAsync(int matchId, string senderId, string body)
     {
-        // Get the other participant
         var receiverId = await GetOtherParticipant(matchId, senderId);
 
         if (string.IsNullOrEmpty(receiverId))
@@ -76,16 +69,15 @@ public class MessageServiceSpec : IMessageServiceSpec
             throw new InvalidOperationException("Cannot determine receiver for match");
         }
 
-        // Create and persist message
         var message = new Message
         {
             SenderId = senderId,
             ReceiverId = receiverId,
             Content = body,
             Type = MessageType.Text,
-            ConversationId = matchId.ToString(), // Use matchId as conversationId
+            ConversationId = matchId.ToString(),
             SentAt = DateTime.UtcNow,
-            ModerationStatus = ModerationStatus.Approved, // Already moderated in hub
+            ModerationStatus = ModerationStatus.Approved,
             IsRead = false,
             IsDeleted = false
         };
@@ -96,10 +88,9 @@ public class MessageServiceSpec : IMessageServiceSpec
         _logger.LogInformation("Message {MessageId} sent in match {MatchId} from {SenderId} to {ReceiverId}",
             message.Id, matchId, senderId, receiverId);
 
-        // Return DTO for SignalR broadcast
         return new MessageDto
         {
-            MessageId = new Guid(message.Id.ToString().PadLeft(32, '0')),
+            MessageId = message.Id,
             MatchId = matchId,
             SenderId = senderId,
             Body = body,
@@ -112,13 +103,12 @@ public class MessageServiceSpec : IMessageServiceSpec
     }
 
     /// <summary>
-    /// Get the other participant in a match (not the current user)
+    /// Get the other participant in a match (not the current user).
     /// </summary>
-    public async Task<string> GetOtherParticipant(Guid matchId, string userId)
+    public async Task<string> GetOtherParticipant(int matchId, string userId)
     {
         try
         {
-            // Call matchmaking service to get match details
             var response = await _httpClient.GetAsync($"/api/matchmaking/matches/{userId}");
 
             if (!response.IsSuccessStatusCode)
@@ -132,17 +122,11 @@ public class MessageServiceSpec : IMessageServiceSpec
             if (result?.Matches == null)
                 return string.Empty;
 
-            // Convert Guid matchId to int for comparison
-            var matchIdInt = int.Parse(matchId.ToString().Substring(0, 8),
-                System.Globalization.NumberStyles.HexNumber);
-
-            // Find the specific match and return the other user
-            var match = result.Matches.FirstOrDefault(m => m.MatchId == matchIdInt);
+            var match = result.Matches.FirstOrDefault(m => m.MatchId == matchId);
 
             if (match == null)
                 return string.Empty;
 
-            // Return the matched user ID (the one that's not the current user)
             return match.MatchedUserId.ToString();
         }
         catch (Exception ex)
@@ -153,37 +137,27 @@ public class MessageServiceSpec : IMessageServiceSpec
     }
 
     /// <summary>
-    /// Acknowledge message delivery (for delivery tracking)
-    /// Basic implementation - updates deliveredAt timestamp
+    /// Acknowledge message delivery (for delivery tracking).
     /// </summary>
-    public async Task AcknowledgeMessageAsync(Guid messageId, string userId)
+    public async Task AcknowledgeMessageAsync(int messageId, string userId)
     {
         try
         {
-            // Convert Guid back to int ID (simplified - in production would use Guid in DB)
-            var messageIdInt = int.Parse(messageId.ToString().Substring(0, 10).TrimStart('0').PadLeft(1, '1'));
-
             var message = await _context.Messages
-                .FirstOrDefaultAsync(m => m.Id == messageIdInt && m.ReceiverId == userId);
+                .FirstOrDefaultAsync(m => m.Id == messageId && m.ReceiverId == userId);
 
-            if (message != null)
+            if (message != null && !message.IsRead)
             {
-                // In basic MMP implementation, acknowledgment updates read status
-                // Full delivery tracking deferred to Phase 2
-                if (!message.IsRead)
-                {
-                    message.IsRead = true;
-                    message.ReadAt = DateTime.UtcNow;
-                    await _context.SaveChangesAsync();
+                message.IsRead = true;
+                message.ReadAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
 
-                    _logger.LogInformation("Message {MessageId} acknowledged by {UserId}", messageId, userId);
-                }
+                _logger.LogInformation("Message {MessageId} acknowledged by {UserId}", messageId, userId);
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error acknowledging message {MessageId}", messageId);
-            // Don't throw - acknowledgment failures shouldn't break UX
         }
     }
 }

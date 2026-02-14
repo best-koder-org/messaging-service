@@ -1,3 +1,4 @@
+using MessagingService.Metrics;
 using Microsoft.AspNetCore.SignalR;
 using System.Security.Claims;
 using MessagingService.Models;
@@ -16,17 +17,20 @@ public class MessagingHubSpec : Hub
     private readonly IContentModerationService _contentModeration;
     private readonly ISafetyServiceClient _safetyService;
     private readonly ILogger<MessagingHubSpec> _logger;
+    private readonly MessagingServiceMetrics? _metrics;
 
     public MessagingHubSpec(
         IMessageServiceSpec messageService,
         IContentModerationService contentModeration,
         ISafetyServiceClient safetyService,
-        ILogger<MessagingHubSpec> logger)
+        ILogger<MessagingHubSpec> logger,
+        MessagingServiceMetrics? metrics = null)
     {
         _messageService = messageService;
         _contentModeration = contentModeration;
         _safetyService = safetyService;
         _logger = logger;
+        _metrics = metrics;
     }
 
     public override async Task OnConnectedAsync()
@@ -105,6 +109,7 @@ public class MessagingHubSpec : Hub
             {
                 _logger.LogWarning("Content blocked from user {SenderId} in match {MatchId}: {Reason}",
                     senderId, request.MatchId, moderationResult.Reason);
+                _metrics?.MessageModerated();
                 throw new HubException("content-blocked");
             }
 
@@ -117,6 +122,8 @@ public class MessagingHubSpec : Hub
 
             _logger.LogInformation("Message {MessageId} sent in match {MatchId}",
                 messageDto.MessageId, request.MatchId);
+
+            _metrics?.MessageSent();
         }
         catch (HubException)
         {

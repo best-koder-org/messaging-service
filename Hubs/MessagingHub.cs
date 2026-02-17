@@ -180,4 +180,26 @@ public class MessagingHub : Hub
         var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         _logger.LogInformation($"User {userId} left conversation {conversationId}");
     }
+
+    public async Task Typing(string matchId, bool isTyping)
+    {
+        var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            await Clients.Caller.SendAsync("Error", "Authentication required");
+            return;
+        }
+
+        // Broadcast typing state to the other user in this match/conversation
+        await Clients.OthersInGroup($"conversation_{matchId}").SendAsync("TypingChanged", new
+        {
+            matchId,
+            userId,
+            isTyping
+        });
+
+        _logger.LogDebug($"User {userId} typing={isTyping} in match {matchId}");
+    }
+
 }

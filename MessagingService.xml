@@ -34,12 +34,13 @@
         <member name="T:MessagingService.Controllers.ReadReceiptsController">
             <summary>
             Manages read receipt tracking for messages.
-            Phase 1: REST API only. Phase 2 will add SignalR real-time push.
+            DB-backed via MessagingDbContext — updates Message.IsRead/ReadAt fields.
             </summary>
         </member>
         <member name="M:MessagingService.Controllers.ReadReceiptsController.MarkAsRead(MessagingService.DTOs.MarkAsReadRequest)">
             <summary>
             Mark a message as read by the current user.
+            Only the receiver can mark their own messages as read.
             </summary>
         </member>
         <member name="M:MessagingService.Controllers.ReadReceiptsController.GetUnreadCount(System.String)">
@@ -47,7 +48,7 @@
             Get unread message count for a conversation.
             </summary>
         </member>
-        <member name="M:MessagingService.Controllers.ReadReceiptsController.GetReceiptsForMessage(System.Guid)">
+        <member name="M:MessagingService.Controllers.ReadReceiptsController.GetReceiptsForMessage(System.Int32)">
             <summary>
             Get all read receipts for a specific message.
             </summary>
@@ -65,22 +66,22 @@
         </member>
         <member name="T:MessagingService.DTOs.ReadReceiptDto">
             <summary>
-            DTO for read receipt responses
+            Response DTO for a read receipt
             </summary>
         </member>
-        <member name="M:MessagingService.DTOs.ReadReceiptDto.#ctor(System.Guid,System.String,System.DateTime)">
+        <member name="M:MessagingService.DTOs.ReadReceiptDto.#ctor(System.Int32,System.String,System.DateTime)">
             <summary>
-            DTO for read receipt responses
+            Response DTO for a read receipt
             </summary>
         </member>
         <member name="T:MessagingService.DTOs.MarkAsReadRequest">
             <summary>
-            Request DTO for marking a message as read
+            Request to mark a message as read
             </summary>
         </member>
-        <member name="M:MessagingService.DTOs.MarkAsReadRequest.#ctor(System.Guid)">
+        <member name="M:MessagingService.DTOs.MarkAsReadRequest.#ctor(System.Int32)">
             <summary>
-            Request DTO for marking a message as read
+            Request to mark a message as read
             </summary>
         </member>
         <member name="T:MessagingService.DTOs.UnreadCountDto">

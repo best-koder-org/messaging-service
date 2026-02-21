@@ -1,18 +1,18 @@
 namespace MessagingService.DTOs;
 
 /// <summary>
-/// DTO for read receipt responses
+/// Response DTO for a read receipt
 /// </summary>
 public record ReadReceiptDto(
-    Guid MessageId,
+    int MessageId,
     string ReaderId,
     DateTime ReadAt
 );
 
 /// <summary>
-/// Request DTO for marking a message as read
+/// Request to mark a message as read
 /// </summary>
-public record MarkAsReadRequest(Guid MessageId);
+public record MarkAsReadRequest(int MessageId);
 
 /// <summary>
 /// Response DTO for unread message count

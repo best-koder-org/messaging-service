@@ -1,3 +1,4 @@
+using DatingApp.Llm;
 using DatingApp.Shared.Middleware;
 using FluentValidation;
 using MessagingService.Data;
@@ -68,7 +69,7 @@ builder.Services.AddKeycloakAuthentication(builder.Configuration, options =>
         {
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/messages"))
+            if (!string.IsNullOrEmpty(accessToken) && (path.StartsWithSegments("/hubs/messages") || path.StartsWithSegments("/messagingHub")))
             {
                 context.Token = accessToken;
             }
@@ -107,6 +108,10 @@ builder.Services.AddScoped<IReportingService, ReportingService>();
 builder.Services.AddScoped<IMatchValidationService, MatchValidationService>();
 builder.Services.AddCorrelationIds();
 builder.Services.AddSingleton<MessagingService.Services.IPresenceTracker, MessagingService.Services.InMemoryPresenceTracker>();
+
+// LLM providers and router
+builder.Services.AddLlm(builder.Configuration);
+builder.Services.AddScoped<ISafetyAgentService, SafetyAgentService>();
 
 // Internal API Key Authentication for service-to-service calls
 builder.Services.AddScoped<InternalApiKeyAuthFilter>();
@@ -244,7 +249,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseCors("AllowSpecificOrigins");
 
@@ -265,6 +273,7 @@ app.MapPrometheusScrapingEndpoint("/metrics");
 
 // Map SignalR hub - Use the spec-compliant hub
 app.MapHub<MessagingHubSpec>("/hubs/messages");
+app.MapHub<MessagingHubSpec>("/messagingHub"); // Flutter compat alias
 
 // Ensure database is created
 using (var scope = app.Services.CreateScope())

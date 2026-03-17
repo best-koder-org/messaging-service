@@ -34,12 +34,17 @@ public class MessagingHubSpecTests_Fixed : IAsyncLifetime
     private Mock<IMessageServiceSpec> _mockMessageService = null!;
     private Mock<IContentModerationService> _mockContentModeration = null!;
     private Mock<ISafetyServiceClient> _mockSafetyService = null!;
+    private Mock<ISafetyAgentService> _mockSafetyAgent = null!;
 
     public async Task InitializeAsync()
     {
         _mockMessageService = new Mock<IMessageServiceSpec>();
         _mockContentModeration = new Mock<IContentModerationService>();
         _mockSafetyService = new Mock<ISafetyServiceClient>();
+        _mockSafetyAgent = new Mock<ISafetyAgentService>();
+        _mockSafetyAgent
+            .Setup(x => x.ClassifyAsync(It.IsAny<string>(), It.IsAny<System.Threading.CancellationToken>()))
+            .ReturnsAsync(new SafetyClassification(SafetyLevel.Safe, "safe", 0.99));
 
         _mockMessageService
             .Setup(x => x.IsMatchParticipant(TestMatchId, User1Id))
@@ -86,6 +91,7 @@ public class MessagingHubSpecTests_Fixed : IAsyncLifetime
                         services.AddSingleton(_mockMessageService.Object);
                         services.AddSingleton(_mockContentModeration.Object);
                         services.AddSingleton(_mockSafetyService.Object);
+                        services.AddSingleton(_mockSafetyAgent.Object);
                         services.AddLogging();
                     })
                     .Configure(app =>
@@ -241,13 +247,9 @@ public class MessagingHubSpecTests_Fixed : IAsyncLifetime
     [Fact]
     public async Task SendMessage_ContentModeration_BlocksInappropriateContent()
     {
-        _mockContentModeration!
-            .Setup(x => x.ModerateContentAsync("badword"))
-            .ReturnsAsync(new ModerationResult 
-            { 
-                IsApproved = false, 
-                Reason = "Inappropriate content" 
-            });
+        _mockSafetyAgent!
+            .Setup(x => x.ClassifyAsync("badword", It.IsAny<System.Threading.CancellationToken>()))
+            .ReturnsAsync(new SafetyClassification(SafetyLevel.Block, "Inappropriate content", 0.95));
 
         var exception = await Assert.ThrowsAsync<HubException>(async () =>
         {
@@ -328,8 +330,8 @@ public class MessagingHubSpecTests_Fixed : IAsyncLifetime
         });
 
         await Task.Delay(100);
-        _mockContentModeration!.Verify(
-            x => x.ModerateContentAsync(testMessage),
+        _mockSafetyAgent!.Verify(
+            x => x.ClassifyAsync(testMessage, It.IsAny<System.Threading.CancellationToken>()),
             Times.Once);
     }
 

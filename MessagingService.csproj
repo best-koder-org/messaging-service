@@ -46,6 +46,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\shared\DatingApp.Llm\DatingApp.Llm.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -15,6 +15,7 @@ public class MessagingHubSpec : Hub
 {
     private readonly IMessageServiceSpec _messageService;
     private readonly IContentModerationService _contentModeration;
+    private readonly ISafetyAgentService _safetyAgent;
     private readonly ISafetyServiceClient _safetyService;
     private readonly ILogger<MessagingHubSpec> _logger;
     private readonly MessagingServiceMetrics? _metrics;
@@ -22,12 +23,14 @@ public class MessagingHubSpec : Hub
     public MessagingHubSpec(
         IMessageServiceSpec messageService,
         IContentModerationService contentModeration,
+        ISafetyAgentService safetyAgent,
         ISafetyServiceClient safetyService,
         ILogger<MessagingHubSpec> logger,
         MessagingServiceMetrics? metrics = null)
     {
         _messageService = messageService;
         _contentModeration = contentModeration;
+        _safetyAgent = safetyAgent;
         _safetyService = safetyService;
         _logger = logger;
         _metrics = metrics;
@@ -103,18 +106,27 @@ public class MessagingHubSpec : Hub
                 throw new HubException("message-too-long");
             }
 
-            // Content moderation
-            var moderationResult = await _contentModeration.ModerateContentAsync(request.Body);
-            if (!moderationResult.IsApproved)
+            // AI Safety Agent classification (falls back to static filter on LLM failure)
+            var safety = await _safetyAgent.ClassifyAsync(request.Body);
+
+            if (safety.Level == SafetyLevel.Block)
             {
-                _logger.LogWarning("Content blocked from user {SenderId} in match {MatchId}: {Reason}",
-                    senderId, request.MatchId, moderationResult.Reason);
+                _logger.LogWarning("Message BLOCKED from {SenderId} in match {MatchId}: {Reason} (confidence: {Confidence:P0})",
+                    senderId, request.MatchId, safety.Reason, safety.Confidence);
                 _metrics?.MessageModerated();
                 throw new HubException("content-blocked");
             }
 
             // Persist and broadcast message
             var messageDto = await _messageService.SendMessageAsync(request.MatchId, senderId, request.Body);
+
+            // Attach safety metadata for warned messages
+            if (safety.Level == SafetyLevel.Warning)
+            {
+                messageDto.ModerationFlag = safety.Reason;
+                _logger.LogInformation("Message WARNING from {SenderId} in match {MatchId}: {Reason}",
+                    senderId, request.MatchId, safety.Reason);
+            }
 
             // Server-to-Client: MessageReceived for both participants
             await Clients.User(receiverId).SendAsync("MessageReceived", messageDto);

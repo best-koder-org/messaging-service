@@ -302,4 +302,86 @@ public class MessagesControllerTests : IDisposable
         var okResult = Assert.IsType<OkObjectResult>(result);
         Assert.Equal(0, okResult.Value);
     }
+
+    // --- Audio Message Tests ---
+
+    [Fact]
+    public async Task SendAudioMessage_Success_ReturnsCreated()
+    {
+        // Arrange
+        var request = new SendMessageRequestRest
+        {
+            RecipientUserId = "user-def-456",
+            Text = "https://storage.example.com/audio/voice-note.m4a",
+            Type = MessageType.Audio
+        };
+        var msgDto = new CmdMessageDto
+        {
+            Id = 1,
+            SenderId = TestUserId,
+            ReceiverId = "user-def-456",
+            Content = "https://storage.example.com/audio/voice-note.m4a",
+            SentAt = DateTime.UtcNow
+        };
+        _mockMediator.Setup(m => m.Send(It.IsAny<SendMessageCommand>(), default))
+            .ReturnsAsync(Result<CmdMessageDto>.Success(msgDto));
+
+        // Act
+        var result = await _controller.SendMessage(request);
+
+        // Assert
+        var createdResult = Assert.IsType<CreatedResult>(result);
+        Assert.Contains("/api/messages/1", createdResult.Location!);
+    }
+
+    [Fact]
+    public async Task SendAudioMessage_PassesAudioTypeToMediator()
+    {
+        // Arrange
+        var request = new SendMessageRequestRest
+        {
+            RecipientUserId = "user-def-456",
+            Text = "https://storage.example.com/audio/voice-note.m4a",
+            Type = MessageType.Audio
+        };
+        var msgDto = new CmdMessageDto
+        {
+            Id = 2,
+            SenderId = TestUserId,
+            ReceiverId = "user-def-456",
+            Content = request.Text,
+            SentAt = DateTime.UtcNow
+        };
+        _mockMediator.Setup(m => m.Send(It.IsAny<SendMessageCommand>(), default))
+            .ReturnsAsync(Result<CmdMessageDto>.Success(msgDto));
+
+        // Act
+        await _controller.SendMessage(request);
+
+        // Assert — verify messge type was passed through
+        _mockMediator.Verify(m => m.Send(
+            It.Is<SendMessageCommand>(c => c.Type == MessageType.Audio),
+            default), Times.Once);
+    }
+
+    [Fact]
+    public async Task SendAudioMessage_NonMatchedUsers_ReturnsForbid()
+    {
+        // Arrange
+        var request = new SendMessageRequestRest
+        {
+            RecipientUserId = "stranger",
+            Text = "https://storage.example.com/audio/voice-note.m4a",
+            Type = MessageType.Audio
+        };
+        _mockMediator.Setup(m => m.Send(It.IsAny<SendMessageCommand>(), default))
+            .ReturnsAsync(Result<CmdMessageDto>.Failure("UNAUTHORIZED: non-matched users"));
+
+        // Act
+        var result = await _controller.SendMessage(request);
+
+        // Assert
+        Assert.IsType<ForbidResult>(result);
+    }
+
 }

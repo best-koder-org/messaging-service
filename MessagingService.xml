@@ -31,6 +31,15 @@
             Delete all messages for a specific user (used during account deletion)
             </summary>
         </member>
+        <member name="M:MessagingService.Controllers.ModerationController.GetModerationQueue(System.Int32,System.Int32)">
+            <summary>Get flagged messages that require review</summary>
+        </member>
+        <member name="M:MessagingService.Controllers.ModerationController.ReviewMessage(System.Int32,MessagingService.Controllers.ReviewRequest)">
+            <summary>Review a flagged message (approve or reject)</summary>
+        </member>
+        <member name="M:MessagingService.Controllers.ModerationController.GetStats">
+            <summary>Get moderation stats</summary>
+        </member>
         <member name="T:MessagingService.Controllers.ReadReceiptsController">
             <summary>
             Manages read receipt tracking for messages.
@@ -125,6 +134,17 @@
         <member name="M:MessagingService.Migrations.InitialCreate.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
         </member>
+        <member name="T:MessagingService.Prompts.SafetyClassificationPrompt">
+            <summary>
+            System prompt and parsing for LLM-based safety classification of chat messages.
+            </summary>
+        </member>
+        <member name="M:MessagingService.Prompts.SafetyClassificationPrompt.Parse(System.String)">
+            <summary>
+            Parse the LLM JSON response into a SafetyClassification.
+            Returns a safe default if parsing fails.
+            </summary>
+        </member>
         <member name="T:MessagingService.Services.IMessageServiceSpec">
             <summary>
             Message service specification interface for SignalR hub.
@@ -136,7 +156,7 @@
             Check if a user is a participant in a match
             </summary>
         </member>
-        <member name="M:MessagingService.Services.IMessageServiceSpec.SendMessageAsync(System.Int32,System.String,System.String)">
+        <member name="M:MessagingService.Services.IMessageServiceSpec.SendMessageAsync(System.Int32,System.String,System.String,System.String,System.Nullable{System.Double})">
             <summary>
             Send a message within a match and persist it
             </summary>
@@ -218,7 +238,7 @@
             Calls MatchmakingService to verify match ownership.
             </summary>
         </member>
-        <member name="M:MessagingService.Services.MessageServiceSpec.SendMessageAsync(System.Int32,System.String,System.String)">
+        <member name="M:MessagingService.Services.MessageServiceSpec.SendMessageAsync(System.Int32,System.String,System.String,System.String,System.Nullable{System.Double})">
             <summary>
             Send a message within a match and persist it.
             </summary>
@@ -237,6 +257,11 @@
             <summary>
             T070: Messaging Metrics
             Tracks: SignalR Connections, Message Delivery Rate, Latency, Moderation
+            </summary>
+        </member>
+        <member name="T:MessagingService.Services.SafetyAgentService">
+            <summary>
+            LLM-powered message safety classifier. Falls back to static filter on LLM failure.
             </summary>
         </member>
     </members>

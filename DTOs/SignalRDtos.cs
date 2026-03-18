@@ -6,6 +6,8 @@ public class SendMessageRequest
 {
     public int MatchId { get; set; }
     public string Body { get; set; } = string.Empty;
+    public string BodyType { get; set; } = "Text";
+    public double? AudioDurationSeconds { get; set; }
 }
 
 public class AcknowledgeRequest
@@ -24,4 +26,5 @@ public class MessageDto
     public DateTime? DeliveredAt { get; set; }
     public DateTime? ReadAt { get; set; }
     public string? ModerationFlag { get; set; }
+    public double? AudioDurationSeconds { get; set; }
 }

@@ -60,7 +60,7 @@ public class MessageServiceSpec : IMessageServiceSpec
     /// <summary>
     /// Send a message within a match and persist it.
     /// </summary>
-    public async Task<MessageDto> SendMessageAsync(int matchId, string senderId, string body)
+    public async Task<MessageDto> SendMessageAsync(int matchId, string senderId, string body, string bodyType = "Text", double? audioDurationSeconds = null)
     {
         var receiverId = await GetOtherParticipant(matchId, senderId);
 
@@ -69,12 +69,14 @@ public class MessageServiceSpec : IMessageServiceSpec
             throw new InvalidOperationException("Cannot determine receiver for match");
         }
 
+        var msgType = Enum.TryParse<MessageType>(bodyType, true, out var parsed) ? parsed : MessageType.Text;
+
         var message = new Message
         {
             SenderId = senderId,
             ReceiverId = receiverId,
             Content = body,
-            Type = MessageType.Text,
+            Type = msgType,
             ConversationId = matchId.ToString(),
             SentAt = DateTime.UtcNow,
             ModerationStatus = ModerationStatus.Approved,
@@ -94,11 +96,12 @@ public class MessageServiceSpec : IMessageServiceSpec
             MatchId = matchId,
             SenderId = senderId,
             Body = body,
-            BodyType = "Text",
+            BodyType = bodyType,
             SentAt = message.SentAt,
             DeliveredAt = null,
             ReadAt = null,
-            ModerationFlag = null
+            ModerationFlag = null,
+            AudioDurationSeconds = audioDurationSeconds
         };
     }
 

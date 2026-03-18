@@ -16,7 +16,7 @@ public interface IMessageServiceSpec
     /// <summary>
     /// Send a message within a match and persist it
     /// </summary>
-    Task<MessageDto> SendMessageAsync(int matchId, string senderId, string body);
+    Task<MessageDto> SendMessageAsync(int matchId, string senderId, string body, string bodyType = "Text", double? audioDurationSeconds = null);
 
     /// <summary>
     /// Get the other participant in a match (not the current user)

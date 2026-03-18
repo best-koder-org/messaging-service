@@ -61,15 +61,16 @@ public class MessagingHubSpecTests_Fixed : IAsyncLifetime
             .ReturnsAsync(User1Id);
 
         _mockMessageService
-            .Setup(x => x.SendMessageAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync((int matchId, string senderId, string body) => new MessageDto
+            .Setup(x => x.SendMessageAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<double?>()))
+            .ReturnsAsync((int matchId, string senderId, string body, string bodyType, double? audioDuration) => new MessageDto
             {
                 MessageId = 1,
                 MatchId = matchId,
                 SenderId = senderId,
                 Body = body,
-                BodyType = "Text",
-                SentAt = DateTime.UtcNow
+                BodyType = bodyType,
+                SentAt = DateTime.UtcNow,
+                AudioDurationSeconds = audioDuration
             });
 
         _mockContentModeration
@@ -352,4 +353,131 @@ public class MessagingHubSpecTests_Fixed : IAsyncLifetime
             x => x.IsBlockedAsync(User2Id, User1Id),
             Times.Once);
     }
+
+    // --- Audio Message Tests ---
+
+    [Fact]
+    public async Task SendAudioMessage_ReceiverGetsNotification_WithAudioBodyType()
+    {
+        var messageReceived = new TaskCompletionSource<MessageDto>();
+        _user2Connection!.On<MessageDto>("MessageReceived", msg =>
+        {
+            messageReceived.SetResult(msg);
+        });
+
+        await _user1Connection!.InvokeAsync("SendMessage", new SendMessageRequest
+        {
+            MatchId = TestMatchId,
+            Body = "https://storage.example.com/audio/voice-note-123.m4a",
+            BodyType = "Audio",
+            AudioDurationSeconds = 12.5
+        });
+
+        var completed = await Task.WhenAny(messageReceived.Task, Task.Delay(5000));
+        Assert.True(completed == messageReceived.Task, "Audio message not received within timeout");
+        
+        var message = await messageReceived.Task;
+        Assert.Equal(User1Id, message.SenderId);
+        Assert.Equal("Audio", message.BodyType);
+        Assert.Equal(12.5, message.AudioDurationSeconds);
+        Assert.Contains("voice-note-123.m4a", message.Body);
+    }
+
+    [Fact]
+    public async Task SendAudioMessage_SkipsSafetyClassification()
+    {
+        await _user1Connection!.InvokeAsync("SendMessage", new SendMessageRequest
+        {
+            MatchId = TestMatchId,
+            Body = "https://storage.example.com/audio/voice-note.m4a",
+            BodyType = "Audio",
+            AudioDurationSeconds = 5.0
+        });
+
+        await Task.Delay(200);
+        _mockSafetyAgent!.Verify(
+            x => x.ClassifyAsync(It.IsAny<string>(), It.IsAny<System.Threading.CancellationToken>()),
+            Times.Never,
+            "Audio messages should skip safety classification");
+    }
+
+    [Fact]
+    public async Task SendAudioMessage_StillChecksBlockStatus()
+    {
+        await _user1Connection!.InvokeAsync("SendMessage", new SendMessageRequest
+        {
+            MatchId = TestMatchId,
+            Body = "https://storage.example.com/audio/voice-note.m4a",
+            BodyType = "Audio",
+            AudioDurationSeconds = 7.0
+        });
+
+        await Task.Delay(200);
+        _mockSafetyService!.Verify(
+            x => x.IsBlockedAsync(User1Id, User2Id),
+            Times.Once,
+            "Audio messages must still check block status");
+    }
+
+    [Fact]
+    public async Task SendAudioMessage_BlockedUser_StillBlocked()
+    {
+        _mockSafetyService!
+            .Setup(x => x.IsBlockedAsync(User1Id, User2Id))
+            .ReturnsAsync(true);
+
+        var exception = await Assert.ThrowsAsync<HubException>(async () =>
+        {
+            await _user1Connection!.InvokeAsync("SendMessage", new SendMessageRequest
+            {
+                MatchId = TestMatchId,
+                Body = "https://storage.example.com/audio/blocked.m4a",
+                BodyType = "Audio",
+                AudioDurationSeconds = 3.0
+            });
+        });
+        
+        Assert.Contains("messaging-blocked", exception.Message);
+    }
+
+    [Fact]
+    public async Task SendAudioMessage_PassesTypeToService()
+    {
+        await _user1Connection!.InvokeAsync("SendMessage", new SendMessageRequest
+        {
+            MatchId = TestMatchId,
+            Body = "https://storage.example.com/audio/test.m4a",
+            BodyType = "Audio",
+            AudioDurationSeconds = 15.0
+        });
+
+        await Task.Delay(200);
+        _mockMessageService!.Verify(
+            x => x.SendMessageAsync(
+                TestMatchId,
+                User1Id,
+                "https://storage.example.com/audio/test.m4a",
+                "Audio",
+                15.0),
+            Times.Once,
+            "Audio bodyType and duration should be passed to service");
+    }
+
+    [Fact]
+    public async Task SendTextMessage_DefaultBodyType_CallsSafetyAgent()
+    {
+        // Ensure default (Text) messages still go through safety
+        await _user1Connection!.InvokeAsync("SendMessage", new SendMessageRequest
+        {
+            MatchId = TestMatchId,
+            Body = "Normal text message"
+        });
+
+        await Task.Delay(200);
+        _mockSafetyAgent!.Verify(
+            x => x.ClassifyAsync("Normal text message", It.IsAny<System.Threading.CancellationToken>()),
+            Times.Once,
+            "Text messages must still be classified by safety agent");
+    }
+
 }

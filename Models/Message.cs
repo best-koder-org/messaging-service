@@ -41,7 +41,8 @@ public enum MessageType
 {
     Text = 0,
     Image = 1,
-    Emoji = 2
+    Emoji = 2,
+    Audio = 3
 }
 
 public enum ModerationStatus

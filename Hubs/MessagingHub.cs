@@ -85,21 +85,23 @@ public class MessagingHub : Hub
                 return;
             }
 
-            // Spam detection
-            if (await _spamDetection.IsSpamAsync(senderId, content))
+            // Spam detection & content moderation — skip for audio messages (content is a URL, not text)
+            if (type != MessageType.Audio)
             {
-                await Clients.Caller.SendAsync("Error", "Message flagged as potential spam");
-                _logger.LogWarning($"Spam detected from user {senderId}: {content}");
-                return;
-            }
+                if (await _spamDetection.IsSpamAsync(senderId, content))
+                {
+                    await Clients.Caller.SendAsync("Error", "Message flagged as potential spam");
+                    _logger.LogWarning($"Spam detected from user {senderId}: {content}");
+                    return;
+                }
 
-            // Content moderation
-            var moderationResult = await _contentModeration.ModerateContentAsync(content);
-            if (!moderationResult.IsApproved)
-            {
-                await Clients.Caller.SendAsync("Error", $"Message blocked: {moderationResult.Reason}");
-                _logger.LogWarning($"Content blocked from user {senderId}: {moderationResult.Reason}");
-                return;
+                var moderationResult = await _contentModeration.ModerateContentAsync(content);
+                if (!moderationResult.IsApproved)
+                {
+                    await Clients.Caller.SendAsync("Error", $"Message blocked: {moderationResult.Reason}");
+                    _logger.LogWarning($"Content blocked from user {senderId}: {moderationResult.Reason}");
+                    return;
+                }
             }
 
             // Send message

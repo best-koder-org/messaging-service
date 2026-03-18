@@ -106,26 +106,38 @@ public class MessagingHubSpec : Hub
                 throw new HubException("message-too-long");
             }
 
-            // AI Safety Agent classification (falls back to static filter on LLM failure)
-            var safety = await _safetyAgent.ClassifyAsync(request.Body);
+            var isAudio = string.Equals(request.BodyType, "Audio", StringComparison.OrdinalIgnoreCase);
+            string? moderationFlag = null;
 
-            if (safety.Level == SafetyLevel.Block)
+            // AI Safety Agent classification — skip for audio (content is a URL, not text)
+            if (!isAudio)
             {
-                _logger.LogWarning("Message BLOCKED from {SenderId} in match {MatchId}: {Reason} (confidence: {Confidence:P0})",
-                    senderId, request.MatchId, safety.Reason, safety.Confidence);
-                _metrics?.MessageModerated();
-                throw new HubException("content-blocked");
+                var safety = await _safetyAgent.ClassifyAsync(request.Body);
+
+                if (safety.Level == SafetyLevel.Block)
+                {
+                    _logger.LogWarning("Message BLOCKED from {SenderId} in match {MatchId}: {Reason} (confidence: {Confidence:P0})",
+                        senderId, request.MatchId, safety.Reason, safety.Confidence);
+                    _metrics?.MessageModerated();
+                    throw new HubException("content-blocked");
+                }
+
+                if (safety.Level == SafetyLevel.Warning)
+                {
+                    moderationFlag = safety.Reason;
+                    _logger.LogInformation("Message WARNING from {SenderId} in match {MatchId}: {Reason}",
+                        senderId, request.MatchId, safety.Reason);
+                }
             }
 
             // Persist and broadcast message
-            var messageDto = await _messageService.SendMessageAsync(request.MatchId, senderId, request.Body);
+            var messageDto = await _messageService.SendMessageAsync(
+                request.MatchId, senderId, request.Body, request.BodyType, request.AudioDurationSeconds);
 
             // Attach safety metadata for warned messages
-            if (safety.Level == SafetyLevel.Warning)
+            if (moderationFlag != null)
             {
-                messageDto.ModerationFlag = safety.Reason;
-                _logger.LogInformation("Message WARNING from {SenderId} in match {MatchId}: {Reason}",
-                    senderId, request.MatchId, safety.Reason);
+                messageDto.ModerationFlag = moderationFlag;
             }
 
             // Server-to-Client: MessageReceived for both participants

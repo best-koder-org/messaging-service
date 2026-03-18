@@ -1,0 +1,10 @@
+{
+  "name": "DatingApp .NET Service",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:8.0",
+  "postCreateCommand": "dotnet restore && dotnet build",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-dotnettools.csharp", "GitHub.copilot"]
+    }
+  }
+}

@@ -1,0 +1,24 @@
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+WORKDIR /app
+EXPOSE 5007
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# Copy shared library first
+COPY shared/DatingApp.Llm/DatingApp.Llm.csproj shared/DatingApp.Llm/
+COPY messaging-service/MessagingService.csproj messaging-service/
+RUN dotnet restore "messaging-service/MessagingService.csproj"
+
+COPY shared/DatingApp.Llm/ shared/DatingApp.Llm/
+COPY messaging-service/ messaging-service/
+WORKDIR "/src/messaging-service"
+RUN dotnet build "MessagingService.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "MessagingService.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "MessagingService.dll"]

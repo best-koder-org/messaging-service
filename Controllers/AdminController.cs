@@ -38,8 +38,10 @@ public class AdminController : ControllerBase
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "Admin reset disabled in this environment." });
         }
 
-        var count = await _context.Messages.CountAsync();
-        await _context.Database.ExecuteSqlRawAsync("DELETE FROM Messages");
+        var messages = await _context.Messages.ToListAsync();
+        var count = messages.Count;
+        _context.Messages.RemoveRange(messages);
+        await _context.SaveChangesAsync();
 
         _logger.LogWarning(
             "[FINDING] High AdminReset: cleared {Count} messages by {User}",

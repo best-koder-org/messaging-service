@@ -1,18 +1,25 @@
 using MediatR;
 using MessagingService.Common;
+using MessagingService.Hubs;
 using MessagingService.Services;
+using Microsoft.AspNetCore.SignalR;
 
 namespace MessagingService.Commands;
 
 public class SendMessageHandler : IRequestHandler<SendMessageCommand, Result<MessageDto>>
 {
     private readonly IMessageService _messageService;
+    private readonly IHubContext<MessagingHubSpec>? _hubContext;
     private readonly ILogger<SendMessageHandler> _logger;
 
-    public SendMessageHandler(IMessageService messageService, ILogger<SendMessageHandler> logger)
+    public SendMessageHandler(
+        IMessageService messageService,
+        ILogger<SendMessageHandler> logger,
+        IHubContext<MessagingHubSpec>? hubContext = null)
     {
         _messageService = messageService;
         _logger = logger;
+        _hubContext = hubContext;
     }
 
     public async Task<Result<MessageDto>> Handle(SendMessageCommand request, CancellationToken cancellationToken)
@@ -37,6 +44,26 @@ public class SendMessageHandler : IRequestHandler<SendMessageCommand, Result<Mes
                 Type = message.Type,
                 ConversationId = message.ConversationId
             };
+
+            // Broadcast via SignalR so Flutter clients connected to MessagingHubSpec
+            // receive the message in real-time. Without this, REST-sent messages
+            // (e.g. from bot-service) only appear after a manual refresh.
+            if (_hubContext != null)
+            {
+                try
+                {
+                    await _hubContext.Clients.User(request.ReceiverId)
+                        .SendAsync("MessageReceived", dto, cancellationToken);
+                    await _hubContext.Clients.User(request.SenderId)
+                        .SendAsync("MessageReceived", dto, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "SignalR broadcast failed for message {MessageId} (delivery still persisted)",
+                        message.Id);
+                }
+            }
 
             return Result<MessageDto>.Success(dto);
         }

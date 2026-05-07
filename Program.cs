@@ -42,23 +42,18 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     ));
 
 // Add services to the container.
-var isDemoMode = Environment.GetEnvironmentVariable("DEMO_MODE") == "true";
-
-if (isDemoMode)
+var messagingDbConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(messagingDbConnectionString))
 {
-    Console.WriteLine("MessagingService: Using in-memory database for demo mode");
-    builder.Services.AddDbContext<MessagingDbContext>(options =>
-        options.UseInMemoryDatabase("MessagingServiceDemo"));
+    throw new InvalidOperationException(
+        "MessagingService requires a configured ConnectionStrings:DefaultConnection (MySQL).");
 }
-else
-{
-    builder.Services.AddDbContext<MessagingDbContext>(options =>
-        options.UseMySql(
-            builder.Configuration.GetConnectionString("DefaultConnection"),
-            new MySqlServerVersion(new Version(8, 0, 25))
-        )
-    );
-}
+builder.Services.AddDbContext<MessagingDbContext>(options =>
+    options.UseMySql(
+        messagingDbConnectionString,
+        new MySqlServerVersion(new Version(8, 0, 25))
+    )
+);
 
 // Add Authentication
 builder.Services.AddKeycloakAuthentication(builder.Configuration, options =>
@@ -290,15 +285,7 @@ app.MapHub<MessagingHubSpec>("/messagingHub"); // Flutter compat alias
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
-    if (isDemoMode)
-    {
-        Console.WriteLine("MessagingService: Using in-memory database, skipping migrations");
-        context.Database.EnsureCreated();
-    }
-    else
-    {
-        context.Database.EnsureCreated();
-    }
+    context.Database.EnsureCreated();
 }
 
 app.Run();

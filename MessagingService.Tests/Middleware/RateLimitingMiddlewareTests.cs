@@ -12,6 +12,7 @@ namespace MessagingService.Tests.Middleware;
 public class RateLimitingMiddlewareTests
 {
     private bool _nextCalled;
+    private const int TestLimit = 60;
 
     private RateLimitingMiddleware CreateMiddleware()
     {
@@ -21,7 +22,7 @@ public class RateLimitingMiddlewareTests
             _nextCalled = true;
             return Task.CompletedTask;
         };
-        return new RateLimitingMiddleware(next, Mock.Of<ILogger<RateLimitingMiddleware>>());
+        return new RateLimitingMiddleware(next, Mock.Of<ILogger<RateLimitingMiddleware>>(), TestLimit);
     }
 
     private DefaultHttpContext CreateContext(string ip = "192.168.1.1")

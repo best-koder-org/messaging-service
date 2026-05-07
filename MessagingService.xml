@@ -19,6 +19,15 @@
             Result pattern for operations without return value
             </summary>
         </member>
+        <member name="T:MessagingService.Controllers.AdminController">
+            <summary>
+            Dev/staging-only administrative reset endpoints.
+            Wipes all messages so a clean MVP demo can begin.
+            </summary>
+        </member>
+        <member name="M:MessagingService.Controllers.AdminController.ResetAllMessages">
+            <summary>Wipe all messages. Dev/Staging/Demo only.</summary>
+        </member>
         <member name="M:MessagingService.Controllers.MessageDeletionController.DeleteUserMessages(System.String)">
             <summary>
             Cascade delete all messages for a user (for account deletion).

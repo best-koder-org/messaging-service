@@ -8,8 +8,9 @@ namespace MessagingService.Tests.Services;
 
 public class RateLimitingServiceTests
 {
+    private const int TestLimit = 20;
     private RateLimitingService CreateService() =>
-        new(Mock.Of<ILogger<RateLimitingService>>());
+        new(Mock.Of<ILogger<RateLimitingService>>(), TestLimit);
 
     [Fact]
     public async Task FirstRequest_Allowed()

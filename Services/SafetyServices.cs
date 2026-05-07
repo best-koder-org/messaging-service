@@ -257,12 +257,14 @@ public class RateLimitingService : IRateLimitingService
 {
     private readonly Dictionary<string, List<DateTime>> _userRequests = new();
     private readonly ILogger<RateLimitingService> _logger;
+    private readonly int _maxRequestsPerMinute;
 
-    private const int MaxRequestsPerMinute = 20;
+    public const int DefaultMaxRequestsPerMinute = 2000;
 
-    public RateLimitingService(ILogger<RateLimitingService> logger)
+    public RateLimitingService(ILogger<RateLimitingService> logger, int maxRequestsPerMinute = DefaultMaxRequestsPerMinute)
     {
         _logger = logger;
+        _maxRequestsPerMinute = maxRequestsPerMinute;
     }
 
     public async Task<bool> IsAllowedAsync(string userId)
@@ -279,7 +281,7 @@ public class RateLimitingService : IRateLimitingService
         // Clean requests older than 1 minute
         userRequests.RemoveAll(time => (now - time).TotalMinutes > 1);
 
-        if (userRequests.Count >= MaxRequestsPerMinute)
+        if (userRequests.Count >= _maxRequestsPerMinute)
         {
             _logger.LogWarning($"Rate limit exceeded for user {userId}: {userRequests.Count} requests");
             return false;

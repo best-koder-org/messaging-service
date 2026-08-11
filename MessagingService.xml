@@ -143,6 +143,27 @@
         <member name="M:MessagingService.Migrations.InitialCreate.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
         </member>
+        <member name="T:MessagingService.Models.GhostTracking">
+            <summary>
+            Tracks ghost incidents that have already been reported to reputation-service.
+            Prevents duplicate penalties for the same conversation.
+            </summary>
+        </member>
+        <member name="P:MessagingService.Models.GhostTracking.GhostUserId">
+            <summary>The user who ghosted (stopped replying after mutual conversation).</summary>
+        </member>
+        <member name="P:MessagingService.Models.GhostTracking.VictimUserId">
+            <summary>The user who was ghosted (left waiting for a reply).</summary>
+        </member>
+        <member name="P:MessagingService.Models.GhostTracking.ConversationId">
+            <summary>Conversation identifier (alphabetically-sorted user IDs).</summary>
+        </member>
+        <member name="P:MessagingService.Models.GhostTracking.DetectedAt">
+            <summary>When the ghost incident was detected and reported.</summary>
+        </member>
+        <member name="P:MessagingService.Models.GhostTracking.Reported">
+            <summary>Whether the penalty was successfully sent to reputation-service.</summary>
+        </member>
         <member name="T:MessagingService.Prompts.SafetyClassificationPrompt">
             <summary>
             System prompt and parsing for LLM-based safety classification of chat messages.
@@ -153,6 +174,19 @@
             Parse the LLM JSON response into a SafetyClassification.
             Returns a safe default if parsing fails.
             </summary>
+        </member>
+        <member name="T:MessagingService.Services.GhostDetectionService">
+             <summary>
+             Background service that detects ghosting behavior — users who engage in
+             mutual conversation then stop replying. Penalizes via reputation-service.
+            
+             Criteria for a "ghost" incident:
+               1. Both users in the conversation have sent ≥3 messages (mutual engagement)
+               2. The last message in the conversation was sent ≥3 days ago
+               3. The receiver of the last message has not sent any subsequent message
+               4. The receiver of the last message is flagged as the ghost
+               5. This conversation hasn't already been penalized (GhostTracking dedup)
+             </summary>
         </member>
         <member name="T:MessagingService.Services.IMessageServiceSpec">
             <summary>

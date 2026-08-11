@@ -10,6 +10,7 @@ public class MessagingDbContext : DbContext
     }
 
     public DbSet<Message> Messages { get; set; }
+    public DbSet<GhostTracking> GhostTrackings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,6 +40,17 @@ public class MessagingDbContext : DbContext
 
             entity.HasIndex(e => new { e.SenderId, e.ReceiverId })
                 .HasDatabaseName("IX_Messages_Participants");
+        });
+
+        modelBuilder.Entity<GhostTracking>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.GhostUserId).IsRequired().HasMaxLength(36);
+            entity.Property(e => e.VictimUserId).IsRequired().HasMaxLength(36);
+            entity.Property(e => e.ConversationId).IsRequired().HasMaxLength(100);
+
+            entity.HasIndex(e => e.ConversationId);
+            entity.HasIndex(e => new { e.GhostUserId, e.VictimUserId });
         });
     }
 }

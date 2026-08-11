@@ -126,6 +126,16 @@ builder.Services.AddHttpClient<MessageServiceSpec>(client =>
 })
 .AddHttpMessageHandler<InternalApiKeyAuthHandler>();
 
+// Add HttpClient for GhostDetectionService (to call ReputationService)
+builder.Services.AddHttpClient("ReputationService", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Gateway:BaseUrl"] ?? "http://dejting-yarp:8080");
+})
+.AddHttpMessageHandler<InternalApiKeyAuthHandler>();
+
+// Add ghost detection background service
+builder.Services.AddHostedService<GhostDetectionService>();
+
 // Add HttpClient for MatchValidationService (to call SwipeService)
 builder.Services.AddHttpClient("SwipeService", client =>
 {

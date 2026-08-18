@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -16,6 +17,7 @@ public class MessageServiceTests : IDisposable
 {
     private readonly MessagingDbContext _context;
     private readonly Mock<IMatchValidationService> _matchValidationMock;
+    private readonly Mock<IUserIdentityResolver> _identityResolverMock;
     private readonly MessageService _service;
 
     public MessageServiceTests()
@@ -31,10 +33,17 @@ public class MessageServiceTests : IDisposable
             .Setup(m => m.AreUsersMatchedAsync(It.IsAny<string>(), It.IsAny<string>()))
             .ReturnsAsync(true);
 
+        _identityResolverMock = new Mock<IUserIdentityResolver>();
+        // Default: identity passes through unchanged
+        _identityResolverMock
+            .Setup(r => r.ResolveKeycloakIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string id, CancellationToken _) => id);
+
         _service = new MessageService(
             _context,
             Mock.Of<ILogger<MessageService>>(),
-            _matchValidationMock.Object);
+            _matchValidationMock.Object,
+            _identityResolverMock.Object);
     }
 
     public void Dispose()
@@ -189,5 +198,46 @@ public class MessageServiceTests : IDisposable
 
         var secondRead = (await _context.Messages.FindAsync(msg.Id))!.ReadAt;
         Assert.Equal(firstRead, secondRead);
+    }
+
+    // ===== Profile ID resolution (numeric receiver -> Keycloak ID) =====
+
+    [Fact]
+    public async Task SendMessage_ProfileIdReceiver_ResolvesToKeycloakAndStores()
+    {
+        const string keycloakReceiver = "905e1412-dfd3-4b97-a3e4-f755ed696384";
+        _identityResolverMock
+            .Setup(r => r.ResolveKeycloakIdAsync("16", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(keycloakReceiver);
+        _matchValidationMock
+            .Setup(m => m.AreUsersMatchedAsync("a7fc2a81-f31e-4a9c-81c1-312164041d2c", keycloakReceiver))
+            .ReturnsAsync(true);
+
+        var msg = await _service.SendMessageAsync(
+            "a7fc2a81-f31e-4a9c-81c1-312164041d2c", "16", "Hej!");
+
+        Assert.Equal(keycloakReceiver, msg.ReceiverId);
+        _matchValidationMock.Verify(
+            m => m.AreUsersMatchedAsync("a7fc2a81-f31e-4a9c-81c1-312164041d2c", keycloakReceiver),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetConversation_ProfileIdOtherUser_ResolvesToKeycloak()
+    {
+        const string keycloakOther = "905e1412-dfd3-4b97-a3e4-f755ed696384";
+        _identityResolverMock
+            .Setup(r => r.ResolveKeycloakIdAsync("16", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(keycloakOther);
+        _matchValidationMock
+            .Setup(m => m.AreUsersMatchedAsync("alice", keycloakOther))
+            .ReturnsAsync(true);
+
+        await _service.SendMessageAsync("alice", keycloakOther, "Stored under keycloak");
+
+        var messages = await _service.GetConversationAsync("alice", "16");
+
+        var stored = Assert.Single(messages);
+        Assert.Equal("Stored under keycloak", stored.Content);
     }
 }

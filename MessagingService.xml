@@ -254,6 +254,20 @@
             Get all active connection IDs for a specific user.
             </summary>
         </member>
+        <member name="T:MessagingService.Services.IUserIdentityResolver">
+            <summary>
+            Resolves user identifiers to Keycloak user IDs. Lets clients that still send
+            numeric profile IDs (e.g. older app builds) interact with messages that are
+            stored under Keycloak IDs.
+            </summary>
+        </member>
+        <member name="M:MessagingService.Services.IUserIdentityResolver.ResolveKeycloakIdAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Returns the Keycloak user ID for a user identifier. Numeric profile IDs
+            are resolved via SwipeService's user-mappings; Keycloak UUIDs pass through
+            unchanged. Falls back to the input when it cannot be resolved.
+            </summary>
+        </member>
         <member name="T:MessagingService.Services.MessageServiceOptimized">
             <summary>
             Optimized message service with better query patterns
@@ -305,6 +319,13 @@
         <member name="T:MessagingService.Services.SafetyAgentService">
             <summary>
             LLM-powered message safety classifier. Falls back to static filter on LLM failure.
+            </summary>
+        </member>
+        <member name="T:MessagingService.Services.UserIdentityResolver">
+            <summary>
+            Resolves numeric profile IDs to Keycloak user IDs using SwipeService's
+            <c>/api/swipes/user-mappings</c> endpoint. The mapping is cached in memory
+            with a short TTL. Keycloak UUIDs are returned unchanged.
             </summary>
         </member>
     </members>

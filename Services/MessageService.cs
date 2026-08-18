@@ -19,19 +19,26 @@ public class MessageService : IMessageService
     private readonly MessagingDbContext _context;
     private readonly ILogger<MessageService> _logger;
     private readonly IMatchValidationService _matchValidationService;
+    private readonly IUserIdentityResolver _identityResolver;
 
     public MessageService(
         MessagingDbContext context,
         ILogger<MessageService> logger,
-        IMatchValidationService matchValidationService)
+        IMatchValidationService matchValidationService,
+        IUserIdentityResolver identityResolver)
     {
         _context = context;
         _logger = logger;
         _matchValidationService = matchValidationService;
+        _identityResolver = identityResolver;
     }
 
     public async Task<Message> SendMessageAsync(string senderId, string receiverId, string content, MessageType type = MessageType.Text)
     {
+        // Resolve numeric profile IDs to Keycloak IDs so messages are stored under
+        // the same identity the bots and the app expect.
+        receiverId = await _identityResolver.ResolveKeycloakIdAsync(receiverId);
+
         // Security: Check if users have an active match before allowing message
         var hasMatch = await _matchValidationService.AreUsersMatchedAsync(senderId, receiverId);
         if (!hasMatch)
@@ -63,6 +70,7 @@ public class MessageService : IMessageService
 
     public async Task<List<Message>> GetConversationAsync(string userId, string otherUserId, int page = 1, int pageSize = 50)
     {
+        otherUserId = await _identityResolver.ResolveKeycloakIdAsync(otherUserId);
         var conversationId = GenerateConversationId(userId, otherUserId);
 
         return await _context.Messages

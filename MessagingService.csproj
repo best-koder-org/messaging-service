@@ -54,4 +54,7 @@
     <Content Remove="MessagingService.Tests/**/*" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="MessagingService.Tests" />
+  </ItemGroup>
 </Project>

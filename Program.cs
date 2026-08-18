@@ -101,6 +101,7 @@ builder.Services.AddScoped<IPersonalInfoDetectionService, PersonalInfoDetectionS
 builder.Services.AddScoped<IRateLimitingService, RateLimitingService>();
 builder.Services.AddScoped<IReportingService, ReportingService>();
 builder.Services.AddScoped<IMatchValidationService, MatchValidationService>();
+builder.Services.AddSingleton<IUserIdentityResolver, UserIdentityResolver>();
 builder.Services.AddCorrelationIds();
 builder.Services.AddSingleton<MessagingService.Services.IPresenceTracker, MessagingService.Services.InMemoryPresenceTracker>();
 

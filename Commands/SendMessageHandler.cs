@@ -30,7 +30,8 @@ public class SendMessageHandler : IRequestHandler<SendMessageCommand, Result<Mes
                 request.SenderId,
                 request.ReceiverId,
                 request.Content,
-                request.Type
+                request.Type,
+                request.IsBotGenerated
             );
 
             var dto = new MessageDto

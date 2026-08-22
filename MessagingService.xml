@@ -4,6 +4,9 @@
         <name>MessagingService</name>
     </assembly>
     <members>
+        <member name="P:MessagingService.Commands.SendMessageCommand.IsBotGenerated">
+            <summary>True when the sender is a bot (detected via X-Bot-ProfileId header).</summary>
+        </member>
         <member name="T:MessagingService.Common.ApiResponse`1">
             <summary>
             Standardized API response wrapper
@@ -27,6 +30,12 @@
         </member>
         <member name="M:MessagingService.Controllers.AdminController.ResetAllMessages">
             <summary>Wipe all messages. Dev/Staging/Demo only.</summary>
+        </member>
+        <member name="M:MessagingService.Controllers.AdminController.ResetBotMessages(System.Int32)">
+            <summary>
+            Targeted purge: deletes ONLY bot-generated messages (IsBotGenerated=true).
+            Real-user messages are never touched. Dev/Staging/Demo only.
+            </summary>
         </member>
         <member name="M:MessagingService.Controllers.MessageDeletionController.DeleteUserMessages(System.String)">
             <summary>
@@ -143,6 +152,18 @@
         <member name="M:MessagingService.Migrations.InitialCreate.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
         </member>
+        <member name="T:MessagingService.Migrations.AddIsBotGenerated">
+            <inheritdoc />
+        </member>
+        <member name="M:MessagingService.Migrations.AddIsBotGenerated.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:MessagingService.Migrations.AddIsBotGenerated.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:MessagingService.Migrations.AddIsBotGenerated.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
         <member name="T:MessagingService.Models.GhostTracking">
             <summary>
             Tracks ghost incidents that have already been reported to reputation-service.
@@ -163,6 +184,25 @@
         </member>
         <member name="P:MessagingService.Models.GhostTracking.Reported">
             <summary>Whether the penalty was successfully sent to reputation-service.</summary>
+        </member>
+        <member name="P:MessagingService.Models.Message.IsBotGenerated">
+            <summary>
+            True when this message was sent by a bot (fake user, detected via X-Bot-ProfileId header).
+            Used by the targeted bot-data purge (DELETE /api/admin/bot-messages) so cleanup
+            removes demo conversation data without touching real user messages.
+            </summary>
+        </member>
+        <member name="P:MessagingService.Models.Message.LikedByMe">
+            <summary>
+            Whether the CURRENT user liked this message (heart). Not persisted on the
+            Message row — computed from MessageReactions when building responses.
+            </summary>
+        </member>
+        <member name="T:MessagingService.Models.MessageReaction">
+            <summary>
+            A reaction (heart "like") on a message, keyed by the reacting user's
+            Keycloak id. One row per (message, user) — a user can like a message once.
+            </summary>
         </member>
         <member name="T:MessagingService.Prompts.SafetyClassificationPrompt">
             <summary>

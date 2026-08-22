@@ -54,4 +54,37 @@ public class AdminController : ControllerBase
             environment = _env.EnvironmentName,
         });
     }
+
+    /// <summary>
+    /// Targeted purge: deletes ONLY bot-generated messages (IsBotGenerated=true).
+    /// Real-user messages are never touched. Dev/Staging/Demo only.
+    /// </summary>
+    [HttpDelete("bot-messages")]
+    public async Task<IActionResult> ResetBotMessages([FromQuery] int olderThanHours = 0)
+    {
+        if (!IsResetAllowed())
+        {
+            _logger.LogWarning("Admin reset rejected: environment={Env} is not dev/staging/demo", _env.EnvironmentName);
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Admin reset disabled in this environment." });
+        }
+
+        // Optional TTL filter: only purge bot messages older than N hours.
+        var cutoff = olderThanHours > 0 ? DateTime.UtcNow.AddHours(-olderThanHours) : (DateTime?)null;
+        var botMessages = await _context.Messages
+            .Where(m => m.IsBotGenerated && (cutoff == null || m.SentAt < cutoff)).ToListAsync();
+        var count = botMessages.Count;
+        _context.Messages.RemoveRange(botMessages);
+        await _context.SaveChangesAsync();
+
+        _logger.LogWarning(
+            "[FINDING] Medium AdminReset: cleared {Count} bot messages by {User}",
+            count, User.Identity?.Name ?? "unknown");
+
+        return Ok(new
+        {
+            message = "Bot-generated messages cleared.",
+            deletedMessages = count,
+            environment = _env.EnvironmentName,
+        });
+    }
 }

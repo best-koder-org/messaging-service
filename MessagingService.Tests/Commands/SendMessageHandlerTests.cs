@@ -32,7 +32,7 @@ public class SendMessageHandlerTests
     {
         var msgService = new Mock<IMessageService>();
         msgService
-            .Setup(s => s.SendMessageAsync("sender-kc", "receiver-kc", "hej", MessageType.Text))
+            .Setup(s => s.SendMessageAsync("sender-kc", "receiver-kc", "hej", MessageType.Text, It.IsAny<bool>()))
             .ReturnsAsync(NewMessage("sender-kc", "receiver-kc"));
 
         var receiverProxy = new Mock<IClientProxy>();
@@ -73,7 +73,7 @@ public class SendMessageHandlerTests
     {
         var msgService = new Mock<IMessageService>();
         msgService
-            .Setup(s => s.SendMessageAsync("a", "b", "x", MessageType.Text))
+            .Setup(s => s.SendMessageAsync("a", "b", "x", MessageType.Text, It.IsAny<bool>()))
             .ReturnsAsync(NewMessage("a", "b"));
 
         var failingProxy = new Mock<IClientProxy>();
@@ -105,7 +105,7 @@ public class SendMessageHandlerTests
     {
         var msgService = new Mock<IMessageService>();
         msgService
-            .Setup(s => s.SendMessageAsync("a", "b", "x", MessageType.Text))
+            .Setup(s => s.SendMessageAsync("a", "b", "x", MessageType.Text, It.IsAny<bool>()))
             .ReturnsAsync(NewMessage("a", "b"));
 
         var handler = new SendMessageHandler(

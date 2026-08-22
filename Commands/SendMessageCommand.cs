@@ -10,6 +10,9 @@ public class SendMessageCommand : IRequest<Result<MessageDto>>
     public required string ReceiverId { get; set; }
     public required string Content { get; set; }
     public MessageType Type { get; set; } = MessageType.Text;
+
+    /// <summary>True when the sender is a bot (detected via X-Bot-ProfileId header).</summary>
+    public bool IsBotGenerated { get; set; }
 }
 
 public class MessageDto

@@ -297,6 +297,43 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
     context.Database.EnsureCreated();
+
+    // EnsureCreated is a no-op on existing DBs, so add the bot-flag column idempotently.
+    // This lets the targeted bot-data purge (DELETE /api/admin/bot-messages) work on
+    // databases that were created before the IsBotGenerated column existed.
+    try
+    {
+        await context.Database.ExecuteSqlRawAsync(@"
+            SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Messages' AND COLUMN_NAME = 'IsBotGenerated');
+            SET @ddl := IF(@col = 0,
+                'ALTER TABLE Messages ADD COLUMN IsBotGenerated TINYINT(1) NOT NULL DEFAULT 0',
+                'SELECT 1');
+            PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Could not apply additive IsBotGenerated column (may already exist)");
+    }
+
+    // Create the MessageReactions table (message likes) idempotently.
+    try
+    {
+        await context.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS MessageReactions (
+                Id INT AUTO_INCREMENT PRIMARY KEY,
+                MessageId INT NOT NULL,
+                UserId VARCHAR(36) NOT NULL,
+                Reaction VARCHAR(20) NOT NULL DEFAULT 'like',
+                CreatedAt DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+                UNIQUE KEY UX_MessageReactions_Message_User (MessageId, UserId),
+                KEY IX_MessageReactions_MessageId (MessageId)
+            );");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Could not create MessageReactions table");
+    }
 }
 
 app.Run();

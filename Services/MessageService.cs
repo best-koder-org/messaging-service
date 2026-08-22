@@ -6,7 +6,7 @@ namespace MessagingService.Services;
 
 public interface IMessageService
 {
-    Task<Message> SendMessageAsync(string senderId, string receiverId, string content, MessageType type = MessageType.Text);
+    Task<Message> SendMessageAsync(string senderId, string receiverId, string content, MessageType type = MessageType.Text, bool isBotGenerated = false);
     Task<List<Message>> GetConversationAsync(string userId, string otherUserId, int page = 1, int pageSize = 50);
     Task<List<ConversationSummary>> GetConversationsAsync(string userId);
     Task<Message?> GetMessageAsync(int messageId);
@@ -33,7 +33,7 @@ public class MessageService : IMessageService
         _identityResolver = identityResolver;
     }
 
-    public async Task<Message> SendMessageAsync(string senderId, string receiverId, string content, MessageType type = MessageType.Text)
+    public async Task<Message> SendMessageAsync(string senderId, string receiverId, string content, MessageType type = MessageType.Text, bool isBotGenerated = false)
     {
         // Resolve numeric profile IDs to Keycloak IDs so messages are stored under
         // the same identity the bots and the app expect.
@@ -58,7 +58,8 @@ public class MessageService : IMessageService
             Type = type,
             ConversationId = conversationId,
             SentAt = DateTime.UtcNow,
-            ModerationStatus = ModerationStatus.Approved // Already moderated in hub
+            ModerationStatus = ModerationStatus.Approved, // Already moderated in hub
+            IsBotGenerated = isBotGenerated
         };
 
         _context.Messages.Add(message);

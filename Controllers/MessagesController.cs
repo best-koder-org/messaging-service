@@ -44,12 +44,17 @@ public class MessagesController : ControllerBase
             return Unauthorized();
         }
 
+        // Bot-generated messages carry the X-Bot-ProfileId header (bot-service sends it).
+        // Stamp the row so the targeted bot-data purge can identify it.
+        var isBotGenerated = Request.Headers.ContainsKey("X-Bot-ProfileId");
+
         var command = new SendMessageCommand
         {
             SenderId = userId,
             ReceiverId = request.RecipientUserId,
             Content = request.Text,
-            Type = request.Type ?? Models.MessageType.Text
+            Type = request.Type ?? Models.MessageType.Text,
+            IsBotGenerated = isBotGenerated
         };
 
         var result = await _mediator.Send(command);
@@ -119,7 +124,59 @@ public class MessagesController : ControllerBase
             return StatusCode(500, ApiResponse<object>.FailureResult(result.Error!));
         }
 
-        return Ok(ApiResponse<object>.SuccessResult(result.Value!));
+        var messages = result.Value as List<Models.Message> ?? new List<Models.Message>();
+        if (messages.Count > 0)
+        {
+            var msgIds = messages.Select(m => m.Id).ToList();
+            var likedIds = await _context.MessageReactions
+                .Where(r => r.UserId == userId && msgIds.Contains(r.MessageId))
+                .Select(r => r.MessageId)
+                .ToListAsync();
+            var likedSet = likedIds.ToHashSet();
+            foreach (var m in messages)
+            {
+                m.LikedByMe = likedSet.Contains(m.Id);
+            }
+        }
+
+        return Ok(ApiResponse<object>.SuccessResult(messages));
+    }
+
+    [HttpPut("{messageId}/like")]
+    public async Task<IActionResult> LikeMessage(int messageId)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        var exists = await _context.MessageReactions
+            .AnyAsync(r => r.MessageId == messageId && r.UserId == userId);
+        if (!exists)
+        {
+            _context.MessageReactions.Add(new Models.MessageReaction
+            {
+                MessageId = messageId,
+                UserId = userId,
+            });
+            await _context.SaveChangesAsync();
+        }
+        return Ok(ApiResponse<object>.SuccessResult(new { messageId, liked = true }));
+    }
+
+    [HttpDelete("{messageId}/like")]
+    public async Task<IActionResult> UnlikeMessage(int messageId)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        var reactions = await _context.MessageReactions
+            .Where(r => r.MessageId == messageId && r.UserId == userId)
+            .ToListAsync();
+        if (reactions.Count > 0)
+        {
+            _context.MessageReactions.RemoveRange(reactions);
+            await _context.SaveChangesAsync();
+        }
+        return Ok(ApiResponse<object>.SuccessResult(new { messageId, liked = false }));
     }
 
     [HttpPost("{messageId}/read")]

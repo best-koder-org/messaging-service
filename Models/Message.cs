@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MessagingService.Models;
 
@@ -35,6 +36,20 @@ public class Message
 
     // Conversation tracking
     public string ConversationId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// True when this message was sent by a bot (fake user, detected via X-Bot-ProfileId header).
+    /// Used by the targeted bot-data purge (DELETE /api/admin/bot-messages) so cleanup
+    /// removes demo conversation data without touching real user messages.
+    /// </summary>
+    public bool IsBotGenerated { get; set; }
+
+    /// <summary>
+    /// Whether the CURRENT user liked this message (heart). Not persisted on the
+    /// Message row — computed from MessageReactions when building responses.
+    /// </summary>
+    [NotMapped]
+    public bool LikedByMe { get; set; }
 }
 
 public enum MessageType

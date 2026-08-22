@@ -61,4 +61,45 @@ public class AdminControllerTests : IDisposable
         var status = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status403Forbidden, status.StatusCode);
     }
+
+    [Fact]
+    public async Task ResetBotMessages_DeletesOnlyBotMessagesInDev()
+    {
+        _context.Messages.AddRange(
+            new Message { SenderId = "bot1", ReceiverId = "human", Content = "hej", SentAt = DateTime.UtcNow, IsBotGenerated = true },
+            new Message { SenderId = "human", ReceiverId = "bot1", Content = "hallå", SentAt = DateTime.UtcNow, IsBotGenerated = true },
+            new Message { SenderId = "humanA", ReceiverId = "humanB", Content = "privat", SentAt = DateTime.UtcNow, IsBotGenerated = false });
+        await _context.SaveChangesAsync();
+
+        var result = await BuildController("Development").ResetBotMessages();
+
+        Assert.IsType<OkObjectResult>(result);
+        var remaining = await _context.Messages.ToListAsync();
+        Assert.Single(remaining);
+        Assert.False(remaining[0].IsBotGenerated);
+    }
+
+    [Fact]
+    public async Task ResetBotMessages_RejectsInProduction()
+    {
+        var result = await BuildController("Production").ResetBotMessages();
+        var status = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, status.StatusCode);
+    }
+
+    [Fact]
+    public async Task ResetBotMessages_HonorsOlderThanHours()
+    {
+        _context.Messages.AddRange(
+            new Message { SenderId = "bot1", ReceiverId = "human", Content = "gammal", SentAt = DateTime.UtcNow.AddHours(-30), IsBotGenerated = true },
+            new Message { SenderId = "bot1", ReceiverId = "human", Content = "färsk", SentAt = DateTime.UtcNow, IsBotGenerated = true });
+        await _context.SaveChangesAsync();
+
+        var result = await BuildController("Development").ResetBotMessages(olderThanHours: 24);
+
+        Assert.IsType<OkObjectResult>(result);
+        var remaining = await _context.Messages.ToListAsync();
+        Assert.Single(remaining);
+        Assert.Equal("färsk", remaining[0].Content);
+    }
 }
